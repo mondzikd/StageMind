@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StageMind — Laptop Screen UI Mockups</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #2A2724;
+    color: #3A3632;
+    padding: 40px 20px;
+  }
+
+  .page-header {
+    text-align: center;
+    color: #F5F0E8;
+    margin-bottom: 60px;
+  }
+  .page-header h1 {
+    font-weight: 500;
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+  .page-header p {
+    font-weight: 400;
+    font-size: 14px;
+    color: #A09A94;
+  }
+
+  .section-label {
+    text-align: center;
+    color: #D4A43A;
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .section-description {
+    text-align: center;
+    color: #A09A94;
+    font-size: 13px;
+    margin-bottom: 40px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .screens-row {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 80px;
+  }
+
+  .screen-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .screen-label {
+    color: #A09A94;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+
+  .laptop-frame {
+    width: 380px;
+    background: #4A4540;
+    border-radius: 12px;
+    padding: 8px 8px 24px 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    position: relative;
+  }
+  .laptop-frame::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 4px;
+    background: #5A5550;
+    border-radius: 2px;
+    margin: 12px auto 0;
+  }
+
+  .laptop-screen {
+    background: #F5F0E8;
+    border-radius: 6px;
+    overflow: hidden;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Landing Page */
+  .landing .content {
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .landing h2 {
+    font-weight: 500;
+    font-size: 16px;
+    color: #3A3632;
+    margin-bottom: 6px;
+  }
+  .landing .subtitle {
+    font-size: 11px;
+    color: #7A7570;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .landing .step-list {
+    margin-bottom: 20px;
+  }
+  .landing .step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .landing .step-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #EDE6D6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 500;
+    color: #7A7570;
+    flex-shrink: 0;
+  }
+  .landing .step-text {
+    font-size: 12px;
+    color: #3A3632;
+    line-height: 1.5;
+    padding-top: 2px;
+  }
+  .landing .step-text strong {
+    font-weight: 500;
+  }
+
+  .url-input-group {
+    margin-bottom: 16px;
+  }
+  .url-label {
+    font-size: 10px;
+    color: #7A7570;
+    margin-bottom: 4px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .url-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid #A09A94;
+    border-radius: 8px;
+    background: #EDE6D6;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: #7A7570;
+    outline: none;
+  }
+  .url-input:focus {
+    border-color: #D4A43A;
+    background: #F5F0E8;
+  }
+
+  .controller-diagram {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    padding: 10px 0;
+    margin-bottom: 16px;
+  }
+  .control-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #7A7570;
+  }
+  .control-key {
+    background: #EDE6D6;
+    border: 1px solid #A09A94;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #3A3632;
+  }
+
+  .spacer { flex-grow: 1; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 12px;
+    background: #D4A43A;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    color: #3A3632;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-primary:hover {
+    background: #E8B84B;
+  }
+  .btn-primary:active {
+    background: #B8902E;
+  }
+  .btn-primary.disabled {
+    background: #EDE6D6;
+    color: #A09A94;
+    cursor: default;
+  }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 11px;
+    background: transparent;
+    border: 1.5px solid #A09A94;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    color: #3A3632;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-secondary:hover {
+    border-color: #3A3632;
+    background: #EDE6D6;
+  }
+
+  /* Browser State */
+  .browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #EDE6D6;
+    border-bottom: 1px solid #D6D0C6;
+  }
+  .browser-nav-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid #A09A94;
+    background: #F5F0E8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #7A7570;
+    cursor: pointer;
+  }
+  .browser-url {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid #A09A94;
+    border-radius: 6px;
+    background: #F5F0E8;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: #3A3632;
+  }
+  .browser-content {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    background: #FAFAFA;
+  }
+  .slide-mockup {
+    width: 280px;
+    height: 158px;
+    background: linear-gradient(135deg, #fff 0%, #f0f0f0 100%);
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .slide-mockup .slide-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+  }
+  .slide-mockup .slide-subtitle {
+    font-size: 10px;
+    color: #888;
+  }
+  .slide-mockup .slide-bullets {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 40px;
+    width: 100%;
+  }
+  .slide-mockup .bullet {
+    height: 3px;
+    background: #ddd;
+    border-radius: 2px;
+  }
+  .slide-mockup .bullet:nth-child(2) { width: 85%; }
+  .slide-mockup .bullet:nth-child(3) { width: 70%; }
+
+  .browser-bottom {
+    padding: 12px 20px;
+    background: #EDE6D6;
+    border-top: 1px solid #D6D0C6;
+  }
+
+  /* Pause Menu */
+  .pause-screen {
+    background: rgba(58, 54, 50, 0.75);
+    min-height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .pause-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 32px 40px;
+    width: 240px;
+  }
+  .pause-card .btn-primary,
+  .pause-card .btn-secondary {
+    border-color: rgba(160, 154, 148, 0.6);
+  }
+  .pause-card .btn-secondary {
+    color: #F5F0E8;
+    border-color: rgba(245, 240, 232, 0.3);
+  }
+  .pause-card .btn-secondary:hover {
+    background: rgba(245, 240, 232, 0.1);
+    border-color: rgba(245, 240, 232, 0.5);
+  }
+
+  /* Reinforcement */
+  .reinforcement-screen {
+    background: linear-gradient(180deg, #F5ECD8 0%, #F0E4C8 100%);
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .reinforcement-screen::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at center, rgba(232, 168, 48, 0.15) 0%, transparent 70%);
+  }
+  .particles {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+  }
+  .particle {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(212, 164, 58, 0.4);
+    animation: float-up 4s ease-in infinite;
+  }
+  .particle:nth-child(1) { left: 15%; bottom: -5px; animation-delay: 0s; }
+  .particle:nth-child(2) { left: 30%; bottom: -5px; animation-delay: 0.8s; width: 4px; height: 4px; }
+  .particle:nth-child(3) { left: 50%; bottom: -5px; animation-delay: 1.6s; }
+  .particle:nth-child(4) { left: 65%; bottom: -5px; animation-delay: 0.4s; width: 2px; height: 2px; }
+  .particle:nth-child(5) { left: 80%; bottom: -5px; animation-delay: 1.2s; }
+  .particle:nth-child(6) { left: 40%; bottom: -5px; animation-delay: 2.0s; width: 4px; height: 4px; }
+  .particle:nth-child(7) { left: 70%; bottom: -5px; animation-delay: 2.8s; }
+  .particle:nth-child(8) { left: 25%; bottom: -5px; animation-delay: 3.2s; width: 2px; height: 2px; }
+
+  @keyframes float-up {
+    0% { transform: translateY(0) scale(1); opacity: 0; }
+    10% { opacity: 0.6; }
+    80% { opacity: 0.3; }
+    100% { transform: translateY(-280px) scale(0.5); opacity: 0; }
+  }
+
+  .reinforcement-message {
+    font-size: 15px;
+    font-weight: 500;
+    color: #3A3632;
+    text-align: center;
+    line-height: 1.6;
+    z-index: 1;
+    padding: 0 40px;
+    margin-bottom: 24px;
+  }
+  .reinforcement-actions {
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 200px;
+    opacity: 0;
+    animation: fade-in 0.8s ease forwards;
+    animation-delay: 3s;
+  }
+  @keyframes fade-in {
+    to { opacity: 1; }
+  }
+
+  .reinforcement-actions .btn-secondary {
+    background: transparent;
+    border-color: rgba(58, 54, 50, 0.2);
+  }
+
+  /* Error State */
+  .error-card-wrapper {
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .error-card {
+    background: #EDE6D6;
+    border-radius: 10px;
+    padding: 20px 24px;
+    border-left: 3px solid #C47A5A;
+    margin-bottom: 16px;
+  }
+  .error-card h3 {
+    font-weight: 500;
+    font-size: 13px;
+    color: #3A3632;
+    margin-bottom: 8px;
+  }
+  .error-card p {
+    font-size: 12px;
+    color: #7A7570;
+    line-height: 1.6;
+  }
+  .error-card .error-link {
+    color: #D4A43A;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  /* Color swatches */
+  .color-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 80px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .swatch-color {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .swatch-label {
+    font-size: 10px;
+    color: #A09A94;
+    text-align: center;
+  }
+  .swatch-hex {
+    font-size: 10px;
+    color: #7A7570;
+    font-family: monospace;
+  }
+
+  /* Typography showcase */
+  .type-showcase {
+    background: #F5F0E8;
+    border-radius: 12px;
+    padding: 40px;
+    max-width: 600px;
+    margin: 0 auto 80px;
+  }
+  .type-sample {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #EDE6D6;
+  }
+  .type-sample:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+  .type-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .type-role {
+    font-size: 10px;
+    color: #A09A94;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 500;
+  }
+  .type-spec {
+    font-size: 10px;
+    color: #A09A94;
+    font-family: monospace;
+  }
+  .type-display {
+    font-size: 28px;
+    font-weight: 500;
+    color: #3A3632;
+    line-height: 1.3;
+  }
+  .type-heading {
+    font-size: 18px;
+    font-weight: 500;
+    color: #3A3632;
+    line-height: 1.4;
+  }
+  .type-body {
+    font-size: 14px;
+    font-weight: 400;
+    color: #3A3632;
+    line-height: 1.6;
+  }
+  .type-label-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #3A3632;
+  }
+  .type-caption {
+    font-size: 11px;
+    font-weight: 400;
+    color: #7A7570;
+  }
+
+  /* Button states showcase */
+  .button-states {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 80px;
+  }
+  .state-demo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .state-demo .state-label {
+    font-size: 10px;
+    color: #A09A94;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .state-btn {
+    padding: 12px 32px;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    border: none;
+    cursor: default;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>StageMind — UI Design Direction</h1>
+  <p>Laptop screen mockups showing all UI states &middot; Natural Minimalism &middot; Inter font</p>
+</div>
+
+<!-- Color Palette -->
+<div class="section-label">Color System</div>
+<div class="section-description">Warm, organic, grounded. No pure black or pure white.</div>
+<div class="color-palette">
+  <div class="swatch">
+    <div class="swatch-color" style="background: #F5F0E8;"></div>
+    <div class="swatch-label">Surface</div>
+    <div class="swatch-hex">#F5F0E8</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #EDE6D6;"></div>
+    <div class="swatch-label">Surface Alt</div>
+    <div class="swatch-hex">#EDE6D6</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #3A3632;"></div>
+    <div class="swatch-label">Text</div>
+    <div class="swatch-hex">#3A3632</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #7A7570;"></div>
+    <div class="swatch-label">Text Sec</div>
+    <div class="swatch-hex">#7A7570</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #D4A43A;"></div>
+    <div class="swatch-label">Primary</div>
+    <div class="swatch-hex">#D4A43A</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #E8B84B;"></div>
+    <div class="swatch-label">Hover</div>
+    <div class="swatch-hex">#E8B84B</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #B8902E;"></div>
+    <div class="swatch-label">Pressed</div>
+    <div class="swatch-hex">#B8902E</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #A09A94;"></div>
+    <div class="swatch-label">Border</div>
+    <div class="swatch-hex">#A09A94</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #C47A5A;"></div>
+    <div class="swatch-label">Error</div>
+    <div class="swatch-hex">#C47A5A</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #8BA888;"></div>
+    <div class="swatch-label">Success</div>
+    <div class="swatch-hex">#8BA888</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #C8A96E;"></div>
+    <div class="swatch-label">Wood</div>
+    <div class="swatch-hex">#C8A96E</div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #E8A830;"></div>
+    <div class="swatch-label">Glow</div>
+    <div class="swatch-hex">#E8A830</div>
+  </div>
+</div>
+
+<!-- Typography -->
+<div class="section-label">Typography — Inter</div>
+<div class="section-description">Two weights only. Regular (400) for body. Medium (500) for headings and buttons.</div>
+<div class="type-showcase">
+  <div class="type-sample">
+    <div class="type-meta">
+      <span class="type-role">Display</span>
+      <span class="type-spec">Inter Medium 500 / ~4cm in VR</span>
+    </div>
+    <div class="type-display">The stage knows you now.</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-meta">
+      <span class="type-role">Heading</span>
+      <span class="type-spec">Inter Medium 500 / ~2.5cm in VR</span>
+    </div>
+    <div class="type-heading">Load your slides</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-meta">
+      <span class="type-role">Body</span>
+      <span class="type-spec">Inter Regular 400 / ~1.8cm in VR</span>
+    </div>
+    <div class="type-body">Share your presentation as a public link, then paste the URL below. Your slides will appear on the screen behind you.</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-meta">
+      <span class="type-role">Label</span>
+      <span class="type-spec">Inter Medium 500 / ~1.6cm in VR</span>
+    </div>
+    <div class="type-label-text">Start Rehearsal</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-meta">
+      <span class="type-role">Caption</span>
+      <span class="type-spec">Inter Regular 400 / ~1.2cm in VR</span>
+    </div>
+    <div class="type-caption">Last slide</div>
+  </div>
+</div>
+
+<!-- Button States -->
+<div class="section-label">Button States</div>
+<div class="section-description">Primary (amber) for main actions. Secondary (bordered) for alternatives. Five interaction states.</div>
+<div class="button-states">
+  <div class="state-demo">
+    <span class="state-label">Default</span>
+    <div class="state-btn" style="background: #D4A43A; color: #3A3632;">Start Rehearsal</div>
+  </div>
+  <div class="state-demo">
+    <span class="state-label">Hovered</span>
+    <div class="state-btn" style="background: #E8B84B; color: #3A3632;">Start Rehearsal</div>
+  </div>
+  <div class="state-demo">
+    <span class="state-label">Pressed</span>
+    <div class="state-btn" style="background: #B8902E; color: #3A3632; transform: scale(0.98);">Start Rehearsal</div>
+  </div>
+  <div class="state-demo">
+    <span class="state-label">Disabled</span>
+    <div class="state-btn" style="background: #EDE6D6; color: #A09A94;">Start Rehearsal</div>
+  </div>
+</div>
+<div class="button-states" style="margin-top: -40px;">
+  <div class="state-demo">
+    <span class="state-label">Secondary Default</span>
+    <div class="state-btn" style="background: transparent; border: 1.5px solid #A09A94; color: #3A3632;">Done for Today</div>
+  </div>
+  <div class="state-demo">
+    <span class="state-label">Secondary Hovered</span>
+    <div class="state-btn" style="background: #EDE6D6; border: 1.5px solid #3A3632; color: #3A3632;">Done for Today</div>
+  </div>
+</div>
+
+<!-- Screen Mockups -->
+<div class="section-label">Laptop Screen — All States</div>
+<div class="section-description">Each mockup represents what the user sees on the laptop screen at the podium during different phases of the experience.</div>
+
+<!-- Row 1: Landing Page + Browser -->
+<div class="screens-row">
+  <div class="screen-container">
+    <div class="screen-label">Landing Page (Lobby)</div>
+    <div class="laptop-frame">
+      <div class="laptop-screen landing">
+        <div class="content">
+          <h2>Load your slides</h2>
+          <p class="subtitle">Share your presentation as a public link, then paste the URL below.</p>
+
+          <div class="step-list">
+            <div class="step-item">
+              <div class="step-num">1</div>
+              <div class="step-text">Open your slides in <strong>Google Slides</strong>, <strong>Canva</strong>, or <strong>PowerPoint Online</strong></div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">2</div>
+              <div class="step-text">Share as a <strong>public link</strong> (anyone with the link can view)</div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">3</div>
+              <div class="step-text">Paste the link below</div>
+            </div>
+          </div>
+
+          <div class="url-input-group">
+            <div class="url-label">Presentation URL</div>
+            <input type="text" class="url-input" placeholder="https://docs.google.com/presentation/d/..." readonly>
+          </div>
+
+          <div class="controller-diagram">
+            <div class="control-hint"><span class="control-key">Trigger</span> Next slide</div>
+            <div class="control-hint"><span class="control-key">B</span> Prev slide</div>
+            <div class="control-hint"><span class="control-key">Menu</span> Pause</div>
+          </div>
+
+          <button class="btn-primary disabled">Start Rehearsal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen-container">
+    <div class="screen-label">Slides Loaded (Lobby)</div>
+    <div class="laptop-frame">
+      <div class="laptop-screen">
+        <div class="browser-bar">
+          <div class="browser-nav-btn">←</div>
+          <div class="browser-nav-btn">→</div>
+          <div class="browser-nav-btn">↻</div>
+          <input type="text" class="browser-url" value="docs.google.com/presentation/d/1a2b3c..." readonly>
+        </div>
+        <div class="browser-content">
+          <div class="slide-mockup">
+            <div class="slide-title">Q3 Results</div>
+            <div class="slide-subtitle">Engineering Team Update</div>
+            <div class="slide-bullets">
+              <div class="bullet" style="width: 100%;"></div>
+              <div class="bullet"></div>
+              <div class="bullet"></div>
+            </div>
+          </div>
+        </div>
+        <div class="browser-bottom">
+          <button class="btn-primary">Start Rehearsal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 2: Pause Menu + Reinforcement -->
+<div class="screens-row">
+  <div class="screen-container">
+    <div class="screen-label">Pause Menu (Rehearsal)</div>
+    <div class="laptop-frame">
+      <div class="laptop-screen">
+        <div class="pause-screen">
+          <div class="pause-card">
+            <button class="btn-primary">Resume</button>
+            <button class="btn-secondary">End Session</button>
+            <button class="btn-secondary">Return to Lobby</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen-container">
+    <div class="screen-label">Post-Session Reinforcement</div>
+    <div class="laptop-frame">
+      <div class="laptop-screen">
+        <div class="reinforcement-screen">
+          <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+          </div>
+          <div class="reinforcement-message">
+            Another run in the books.<br>You're more ready than you think.
+          </div>
+          <div class="reinforcement-actions">
+            <button class="btn-primary">Go Again</button>
+            <button class="btn-secondary">Done for Today</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 3: Error State + Confidence Monitor -->
+<div class="screens-row">
+  <div class="screen-container">
+    <div class="screen-label">Error State (Lobby)</div>
+    <div class="laptop-frame">
+      <div class="laptop-screen">
+        <div class="error-card-wrapper">
+          <h2 style="font-weight: 500; font-size: 16px; margin-bottom: 16px;">Load your slides</h2>
+
+          <div class="error-card">
+            <h3>Hmm, that link didn't load.</h3>
+            <p>Looks like this page needs a login. Try sharing your slides as a <span class="error-link">public link</span> instead — anyone with the link can view.</p>
+          </div>
+
+          <div class="url-input-group">
+            <div class="url-label">Presentation URL</div>
+            <input type="text" class="url-input" value="https://canva.com/design/DAF..." readonly style="border-color: #C47A5A;">
+          </div>
+
+          <div class="spacer"></div>
+
+          <button class="btn-primary disabled">Start Rehearsal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen-container">
+    <div class="screen-label">Confidence Monitor (Rehearsal)</div>
+    <div class="laptop-frame">
+      <div class="laptop-screen">
+        <div class="browser-content" style="min-height: 260px; background: #fff;">
+          <div class="slide-mockup" style="width: 320px; height: 200px;">
+            <div class="slide-title" style="font-size: 18px;">Key Metrics</div>
+            <div class="slide-subtitle">Performance highlights from Q3</div>
+            <div class="slide-bullets" style="padding: 0 50px;">
+              <div class="bullet" style="width: 100%; height: 4px;"></div>
+              <div class="bullet" style="height: 4px;"></div>
+              <div class="bullet" style="height: 4px;"></div>
+              <div class="bullet" style="width: 60%; height: 4px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-header" style="margin-top: 20px; margin-bottom: 20px;">
+  <p>StageMind UX Design Direction — Natural Minimalism<br>Inter &middot; Warm Cream &middot; Amber Accents &middot; Zero clutter</p>
+</div>
+
+</body>
+</html>

@@ -12,6 +12,7 @@ inputDocuments:
 
 **Author:** Dominik
 **Date:** 2026-03-29
+**Last revised:** 2026-03-30 — Adversarial review fixes (17 items: slide navigation mechanism, QR code spec, audio design, audience performance budget, login wall detection, URL guardrails, seated mode, headset removal, WebView crash recovery, exit path, message pool expansion, projector screen lobby state, button hierarchy fix, accessibility labeling, WebView spike stability annotations, redundancy cleanup)
 
 ---
 
@@ -53,13 +54,15 @@ Competitor reference: VirtualSpeech offers 12 room types, AI coaching, speech sc
 
 ## Core User Experience
 
-### Defining Experience
+### Experience Overview
 
 The core experience is **standing on a virtual stage with your own slides and running through your talk.** Everything before that moment — the lobby, the browser, the URL input — is setup cost that must be minimized ruthlessly. The product delivers value the instant the user is on stage with slides loaded. Every second of setup is friction working against the "time to stage" metric.
 
 **Core loop:** Load slides → Start → Rehearse → Positive reinforcement → Go Again or Done.
 
 **During rehearsal, the experience is fully immersive.** No persistent UI, no floating panels, no HUD elements. Just the room, the audience, the slides, and the podium with the confidence monitor. The user is *on a stage,* not *in an app.* Interface access is available through a pause menu triggered by the standard Quest menu button.
+
+For the detailed defining experience analysis, user mental model, success criteria, and step-by-step experience mechanics, see [Defining Core Experience](#defining-core-experience) below.
 
 ### Platform Strategy
 
@@ -85,6 +88,27 @@ The controller mapping is intentionally minimal. A zero-experience user holds th
 
 **Quest Menu Button Intercept:** The left Menu button must be explicitly intercepted at the app level via the Oculus Integration SDK to show StageMind's custom pause overlay. Quest's default behavior surfaces the system menu — the app must override this with its own pause screen.
 
+### QR Code Scanning Flow
+
+QR code scanning is an MVP-priority alternative to VR keyboard URL entry — it mitigates the single highest-friction interaction in the app.
+
+**Mechanism:** Quest 3's passthrough cameras are used to scan a QR code displayed on the user's phone or laptop screen. The user generates a QR code for their public slide URL (using any free QR code generator or the sharing feature built into Google Slides/Canva), holds the phone up, and the app reads the encoded URL.
+
+**Technical implementation:** Use Quest 3's passthrough camera feed via the Meta Spatial SDK (`OVRCameraRig` passthrough layer) combined with a QR code decoding library (e.g., ZXing.Net for Unity). The app captures frames from the passthrough camera, scans for QR codes, and extracts the encoded URL string. No internet connection is required for the scan itself — only for loading the URL afterward.
+
+**User flow:**
+
+| Step | User Action | System Response |
+|------|-------------|-----------------|
+| 1 | Taps "Scan QR Code" button on landing page (secondary action below URL input) | Passthrough mode activates — user sees real room through headset |
+| 2 | Holds phone/laptop with QR code visible | Camera feed scans for QR codes. Visual indicator shows scan region. |
+| 3 | QR code detected | Haptic confirmation. URL auto-populates in input field. Passthrough mode closes. |
+| 4 | — | URL loads automatically (same flow as manual entry) |
+
+**Timeout behavior:** If no QR code is detected within 15 seconds, a gentle prompt appears: "No code found. Hold the QR code closer or try typing the link instead." A "Cancel" button returns to the landing page at any time.
+
+**Phase 0 spike dependency:** The WebView spike must also verify that Quest 3's passthrough camera resolution is sufficient for reliable QR code scanning at arm's length (~0.5m). If scanning proves unreliable, QR code support moves to post-MVP and the landing page removes the "Scan QR Code" button — the URL input field becomes the sole entry path.
+
 ### Stage Setup — Podium and Confidence Monitor
 
 A podium with a laptop sits at the speaker's position on stage. The laptop screen functions as a **confidence monitor**, displaying the current slide facing the speaker so they never need to turn around to check the projector screen. This mirrors real conference stage setups where speakers glance down at their laptop or a floor monitor rather than turning to face the projection screen.
@@ -99,8 +123,11 @@ A podium with a laptop sits at the speaker's position on stage. The laptop scree
 
 | Mode | Projector Screen (behind speaker) | Laptop on Podium (facing speaker) |
 |------|-----------------------------------|-----------------------------------|
-| **Lobby** | Passive mirror — large-scale view of browser content | Interactive — browser with landing page, URL input, controller diagram |
+| **Lobby (landing page)** | Static warm-toned screen with StageMind wordmark — does NOT mirror the landing page UI. A giant URL input field on a projector screen looks absurd at conference scale. | Interactive — browser with landing page, URL input, controller diagram |
+| **Lobby (slides loaded)** | Passive mirror — large-scale view of loaded slides | Interactive — browser showing slides with "Start Rehearsal" button |
 | **Rehearsal** | Shows slides to audience (non-interactive) | Shows current slide to speaker as confidence monitor (non-interactive) |
+
+The projector screen begins mirroring the laptop only after slides have loaded. Before that point, the shared `RenderTexture` is not active on the projector mesh — the projector displays a static texture (warm cream background with centered StageMind wordmark in warm dark gray). This is a simple material swap triggered when the WebView reports a successful page load.
 
 **Post-MVP consideration:** The podium is the right spatial anchor for MVP — it grounds the user and matches the most common conference setup. However, not all talks happen behind a podium. Many tech talks involve stage-walking and free movement. A future podium-free mode with the confidence monitor on a side table or floating nearby would support different presentation styles and prevent the podium from becoming a crutch that teaches speakers to hide.
 
@@ -133,6 +160,21 @@ The pause menu provides an escape hatch without cluttering the immersive rehears
 - **Return to Lobby** — skip reinforcement, go back to browser/slide loading
 
 No "Restart" option. Slide reset is handled naturally: the user navigates back to slide 1 manually using the B button, mirroring real presenter behavior before a talk.
+
+**In-app exit:** The lobby landing page includes a "Quit StageMind" SecondaryButton at the bottom of the laptop screen — below "Start Rehearsal" and visually de-emphasized (smaller text, no accent color). This provides a discoverable exit path for zero-VR-experience users who may not know the Quest system exit gesture (long-press Oculus button). On press, the app calls `Application.Quit()` — no "are you sure" confirmation, consistent with the no-confirmation-dialogs principle. The exit button is visible only in lobby mode, never during rehearsal.
+
+### Headset Removal Behavior
+
+Quest 3's proximity sensor pauses the app when the user removes the headset. This is a common real-world action — users take off the headset to check their phone, fix slide sharing settings, or take a break.
+
+| State When Removed | Behavior on Return |
+|-------------------|-------------------|
+| **Lobby (landing page)** | App resumes exactly where left. WebView and input field preserve state. No action needed. |
+| **Lobby (slides loaded)** | App resumes. Slides remain loaded. If the WebView connection timed out during removal, the slides may need to reload — handled by the existing error flow if the page is blank. |
+| **Rehearsal (active)** | Pause menu appears automatically on headset return. The user sees Resume / End Session / Return to Lobby. This prevents the disorienting experience of being thrust back onto a stage mid-sentence with no warning. |
+| **Reinforcement (post-session)** | App resumes in the reinforcement state. If the user was in the linger phase, the "Continue" button is shown immediately (the stillness timer does not reset — the pause was long enough). |
+
+**Implementation:** Register for `OVRManager.InputFocusLost` and `OVRManager.InputFocusAcquired` events. On focus lost during rehearsal, set a flag. On focus acquired, check the flag and trigger the pause menu if returning from rehearsal.
 
 ### Effortless Interactions
 
@@ -243,6 +285,18 @@ Messages rotate randomly from a pool that spans different stages of the confiden
 | "Practice doesn't have to be perfect. You showed up. That's what counts." | Early/Mid — normalizing imperfection |
 | "That's another rehearsal done. The stage knows you now." | Later — reflecting earned familiarity |
 | "Every time you stand here, the real stage feels a little more like home." | Later — connecting rehearsal to transfer |
+| "You just did the thing most people only think about doing." | Early — acknowledging courage |
+| "Not bad for someone who was nervous a few minutes ago." | Early/Mid — reframing the anxiety arc |
+| "The hardest part was starting. You already did that." | Early — validating the first step |
+| "One more run-through, and this stage is yours." | Mid — encouraging repetition |
+| "You know this material. Now you know this room, too." | Mid/Later — connecting content mastery to spatial mastery |
+| "Familiarity is a quiet kind of confidence." | Later — naming the transformation |
+| "The audience didn't faze you as much that time. You noticed, right?" | Later — reflecting diminishing anxiety |
+| "This is what preparation actually feels like." | Mid — redefining what "preparation" means |
+| "You're building a memory your body will remember on the real stage." | Mid/Later — explaining the mechanism gently |
+| "Done. And you can always come back." | Any stage — no-pressure closure |
+
+The pool contains 15 messages (minimum viable for multi-session use without frequent repeats). Messages are selected randomly without replacement within a session — the user will not see the same message twice in consecutive run-throughs. The pool resets across app launches.
 
 Every message must pass the **"Would the user already be half-thinking this?" test.** If yes, it validates and amplifies. If no, it patronizes.
 
@@ -268,12 +322,14 @@ Error states maintain the same warm, supportive tone as the rest of the experien
 
 **Example error messages:**
 
-| Situation | Message | Next Action |
-|-----------|---------|-------------|
-| URL doesn't load | "Hmm, that link didn't load. Make sure your slides are shared as a public link." | Link to instructions on the landing page |
-| Login wall detected | "Looks like this page needs a login. Try sharing your slides as a public link instead." | How-to steps visible on screen |
-| No internet | "We're offline right now. You'll need internet to load your slides." | "Try Again" button |
-| WebView crash | "Something went wrong. Let's try loading that again." | "Reload" button |
+| Situation | Detection Mechanism | Message | Next Action |
+|-----------|-------------------|---------|-------------|
+| URL doesn't load | WebView `OnLoadError` callback (HTTP 4xx/5xx, DNS failure, timeout after 15s) | "Hmm, that link didn't load. Make sure your slides are shared as a public link." | Link to instructions on the landing page |
+| Login wall detected | URL redirect heuristic — after page load, check if the final URL domain differs from the submitted URL domain (e.g., user submits `docs.google.com/...` but lands on `accounts.google.com`). Additionally, check for known login page URL patterns (`/login`, `/signin`, `/auth`, `accounts.google.com`, `login.microsoftonline.com`). This is best-effort detection, not guaranteed. | "Looks like this page needs a login. Try sharing your slides as a public link instead." | How-to steps visible on screen |
+| No internet | `Application.internetReachability == NotReachable` checked before WebView load attempt | "We're offline right now. You'll need internet to load your slides." | "Try Again" button |
+| WebView crash | WebView plugin's crash/unresponsive callback. If the WebView fails to respond to a health-check ping (JavaScript `postMessage` echo) within 5 seconds after a crash signal, treat as unrecoverable. | "Something went wrong with the browser. Let's start fresh." | "Reload" button attempts WebView re-initialization. If reload also fails within 10 seconds, escalate to: "The browser isn't cooperating. Try closing and reopening StageMind." with no further retry button — a dead-end that directs to app restart rather than looping infinitely. |
+
+**Login wall detection limitations:** The redirect heuristic catches the most common case (Google account login redirect) but cannot detect login walls rendered inline on the same domain (e.g., a custom login form on a corporate intranet). In those cases, the user sees the login page on the laptop screen and must recognize the issue themselves. The landing page instructions proactively address this by emphasizing "public link" sharing.
 
 ### Emotional Design Principles
 
@@ -288,6 +344,35 @@ Error states maintain the same warm, supportive tone as the rest of the experien
 5. **Silence is supportive** — During rehearsal, the app is completely silent (no UI, no feedback, no interruptions). The absence of judgment IS the support.
 
 6. **Stillness is design** — The linger phase of post-session reinforcement is not dead time. It's the most intentional moment in the app — a deliberate pause that says "this moment matters."
+
+### Audio Design
+
+Audio is one of VR's most powerful tools for spatial presence and emotional design. StageMind uses audio sparingly and deliberately — never as decoration, always in service of the spatial realism and emotional warmth thesis.
+
+**Audio Layers by Mode:**
+
+| Mode | Audio | Purpose |
+|------|-------|---------|
+| **Lobby** | Soft room tone — low-level HVAC hum, distant muffled sounds typical of a conference building. Very quiet. | Spatial realism. A silent room in VR feels uncanny and "dead." Room tone makes the space feel real without adding semantic content. |
+| **Rehearsal (audience present)** | Room tone continues. Subtle audience presence: occasional quiet shifting, a distant cough, the soft rustle of someone adjusting in their seat. Not continuous — sporadic, 10–20 second intervals. | Spatial pressure. The audience is not just visually present — they occupy sonic space. These ambient cues reinforce that there are real people in the room without being distracting. |
+| **Rehearsal (active speaking)** | No system audio. The user is speaking. Any app audio would compete with their voice. | Silence IS the design. The app gets out of the way. |
+| **Post-session reinforcement** | Room tone fades to silence over ~1s. A single, gentle tonal sound (warm pad, ~2 seconds) accompanies the lighting shift. Then silence during the linger phase. | The tonal sound marks the transition. Silence during the linger phase creates the contemplative space. |
+| **Button/interaction feedback** | Haptic only — no click sounds. | Audio clicks in VR often feel disconnected from the physical controller haptic. Haptic-only is cleaner. |
+
+**Audio Design Principles:**
+
+1. **Diegetic only** — All audio sources exist in the room (HVAC, audience, room reflections). No non-diegetic music, no ambient soundtrack, no UI sounds. The only exception is the single reinforcement tone.
+2. **Spatialized** — Audience ambient sounds use Unity's spatial audio (HRTF via Meta's audio spatializer). A cough from the left of the audience sounds like it comes from the left. This deepens spatial presence.
+3. **Quiet by default** — All ambient audio sits well below conversation volume. If the user is speaking at normal presentation volume, they should barely notice the room tone. It's felt, not heard.
+4. **No music** — Music implies a curated emotional experience (meditation app, wellness product). StageMind is a room, not an experience. Rooms don't have soundtracks.
+
+**Audio Assets Required (MVP):**
+
+| Asset | Type | Duration | Notes |
+|-------|------|----------|-------|
+| Room tone loop | Ambient loop | 30–60s seamless | Recorded or synthesized HVAC/building hum |
+| Audience ambient variations | One-shot clips | 1–3s each, 6–8 variations | Seat shift, throat clear, quiet cough, paper rustle. Randomized playback with spatial position variance. |
+| Reinforcement tone | One-shot | ~2s | Warm pad/chime. Single note, not a melody. Gentle attack, slow decay. |
 
 ## UX Pattern Analysis & Inspiration
 
@@ -366,6 +451,23 @@ Brand comparison anchor: **WeWork, not Regus.** Modern, warm, natural materials,
 - Reinforcement messages in slightly larger, centered type — not shouting, just clear and present
 
 **Performance Alignment:** The natural minimalism aesthetic is inherently performance-friendly on Quest 3. Matte, diffuse materials require only simple shading — no real-time reflections, no specular highlights, no multi-pass rendering. Baked lighting delivers warm ambience at near-zero runtime cost. The 50-person audience benefits from soft, forgiving lighting that masks lower-poly character geometry. This aesthetic direction directly supports the 72fps performance target.
+
+**Audience Performance Budget:**
+
+Quest 3 uses a Snapdragon XR2 Gen 2 mobile chipset. 50 humanoid characters is a significant scene complexity commitment. The following budget ensures 72fps is maintained:
+
+| Parameter | Budget | Rationale |
+|-----------|--------|-----------|
+| **Triangle count per character** | 1,500–3,000 tris | Low-poly humanoid. Sufficient for seated pose at 3–8m viewing distance. |
+| **Total audience triangles** | 75K–150K tris | 50 characters × budget. Leaves headroom for environment (~50K tris) and UI. |
+| **Texture atlas** | 1–2 shared atlases, 2048×2048 each | All characters share a single texture atlas with baked clothing/skin variation. Minimizes material switches and draw calls. |
+| **Character LOD levels** | 2 LODs: full (rows 1–3) and simplified (rows 4+) | Back rows rendered at ~50% triangle count. Characters beyond 6m use simplified meshes. |
+| **Draw calls** | ≤ 20 for all audience combined | Achieved via GPU instancing (identical mesh, varied atlas UV offsets for appearance variation) or static batching (characters are stationary). |
+| **Animation** | None (MVP) | Characters are static seated poses. No skeletal animation runtime cost. Subtle idle animation (breathing, head shifts) is post-MVP. |
+| **Shadows** | Baked only | No real-time character shadows. Baked ambient occlusion beneath chairs provides grounding. |
+| **Appearance variation** | 8–12 unique appearances via atlas UV offsets | Enough variety to avoid "clone army" without unique meshes. Hair, clothing color, and skin tone variation. |
+
+**Pre-production validation:** The Phase 0 spike should include a 50-character scene stress test on Quest 3 hardware measuring frame time, GPU utilization, and thermal throttling over a 15-minute session. If the budget cannot sustain 72fps, reduce to 30 characters (5 rows × 6) — still sufficient for spatial pressure.
 
 ### Transferable UX Patterns
 
@@ -499,7 +601,7 @@ The Released/Activated state prevents accidental double-clicks — it gives the 
 | Prefab | Configurable Properties | Used In |
 |--------|------------------------|---------|
 | **TextBlock** | Text content, size toggle (heading/body) | Landing page, reinforcement, errors |
-| **PrimaryButton** | Label text | "Start Rehearsal", "Continue", "Go Again", "Resume" |
+| **PrimaryButton** | Label text | "Start Rehearsal", "Continue", "Go Again" |
 | **SecondaryButton** | Label text | "Done for Today", "Return to Lobby", "End Session", "Resume" |
 | **TextInputField** | Placeholder text, triggers Quest system keyboard | URL input |
 | **LoadingIndicator** | Simple spinner or progress bar | WebView loading state |
@@ -650,13 +752,19 @@ No "Restart" option. Slide reset is handled naturally: the user navigates back t
 
 ### WebView State Management
 
-The WebView is treated as a stateless browser window. The app never manipulates the WebView's internal navigation state (no forced reloads, no JavaScript injection for slide positioning). The user controls slide position exactly as they would in a real browser — through forward/back navigation within the published presentation viewer.
+The WebView is treated as a persistent browser window whose page-level navigation state the app never manipulates — no forced reloads, no URL changes, no JavaScript injection for slide positioning or page scraping.
+
+**Slide navigation mechanism:** The app advances and reverses slides by sending **keyboard events** (arrow keys) to the focused WebView. When the user pulls the right trigger, the app dispatches a Right Arrow key event to the WebView. When the user presses B, the app dispatches a Left Arrow key event. This is keyboard input forwarding, not DOM manipulation — identical to a Bluetooth keyboard connected to a browser.
+
+**Cross-platform compatibility:** Google Slides (presentation mode and published view), Canva presentations, and PowerPoint Online all respond to Left/Right Arrow keys for slide navigation. This is the universal standard for web-based presentation viewers. The Phase 0 WebView spike must confirm that the chosen WebView plugin (e.g., Vuplex) supports programmatic keyboard event dispatch and that arrow key events are received by the hosted page's active document.
+
+**Fallback consideration:** If a specific presentation platform does not respond to arrow keys (edge case), the user can still interact with the WebView directly in lobby mode to navigate slides manually before starting rehearsal. During rehearsal, unsupported platforms would show no slide change on trigger pull — a discoverable failure, not a silent one.
 
 This approach:
-- Mirrors real presenter behavior (click back to slide 1 before starting again)
-- Avoids fragile platform-specific JavaScript injection
+- Mirrors real presenter behavior (arrow-key navigation is how presenters advance slides on a laptop)
+- Uses a universal input mechanism (keyboard events) rather than fragile platform-specific JavaScript injection
 - Preserves slides on spotty internet (no reload = no risk of losing the page)
-- Simplifies implementation (no WebView state management code)
+- Keeps implementation simple (dispatch key event on trigger/B, no WebView DOM awareness)
 - Works identically across Google Slides, Canva, and PowerPoint Online
 
 ## Visual Design Foundation
@@ -673,10 +781,10 @@ The color system is derived from the natural minimalism aesthetic direction — 
 | **Surface Alt** | Slightly deeper cream | #EDE6D6 | Secondary surfaces, cards, input field backgrounds |
 | **Text Primary** | Warm dark gray | #3A3632 | All body text, headings, button labels |
 | **Text Secondary** | Medium warm gray | #7A7570 | Supporting text, instructions, secondary information |
-| **Primary Action** | Soft amber | #D4A43A | "Start Rehearsal", "Continue", "Go Again", "Resume" — primary buttons |
+| **Primary Action** | Soft amber | #D4A43A | "Start Rehearsal", "Continue", "Go Again" — primary buttons |
 | **Primary Action Hover** | Brighter amber | #E8B84B | Hover/pointed state for primary buttons |
 | **Primary Action Pressed** | Deeper amber | #B8902E | Pressed state for primary buttons |
-| **Secondary Action Border** | Warm medium gray | #A09A94 | "Done for Today", "Return to Lobby", "End Session" — secondary button borders |
+| **Secondary Action Border** | Warm medium gray | #A09A94 | "Done for Today", "Return to Lobby", "End Session", "Resume" — secondary button borders |
 | **Error** | Warm terracotta (not harsh red) | #C47A5A | Error state accents — warm, not alarming |
 | **Success / Loading** | Soft sage | #8BA888 | Loading indicators, success states |
 | **Reinforcement Glow** | Deep warm amber | #E8A830 | Post-session lighting shift — applied as post-processing color temperature |
@@ -842,7 +950,7 @@ flowchart TD
     AA --> AB{What next?}
     AB -->|Navigate to slide 1 + Start| M
     AB -->|Load new URL| G
-    AB -->|Exit app| AC[Close StageMind]
+    AB -->|Quit StageMind button| AC[App closes via Application.Quit]
 ```
 
 **Key flow characteristics:**
@@ -1200,7 +1308,7 @@ Layouts built from atomic prefabs — not standalone components.
 
 | Screen | Composition | Context |
 |--------|------------|---------|
-| **Landing Page** | TextBlock (heading) + TextBlock (body) + TextInputField + PrimaryButton ("Go") + TextBlock × 3 (controller labels: "Right trigger: Next slide / Right B: Previous / Left Menu: Pause") + PrimaryButton ("Start Rehearsal", disabled until slides load) | Laptop screen in lobby |
+| **Landing Page** | TextBlock (heading) + TextBlock (body) + TextInputField + PrimaryButton ("Go") + SecondaryButton ("Scan QR Code") + TextBlock × 3 (controller labels: "Right trigger: Next slide / Right B: Previous / Left Menu: Pause") + PrimaryButton ("Start Rehearsal", disabled until slides load) + SecondaryButton ("Quit StageMind", de-emphasized at bottom) | Laptop screen in lobby |
 | **Slides Loaded** | WebView (fills laptop screen) + PrimaryButton ("Start Rehearsal" at bottom) | Laptop screen after URL loads |
 | **Pause Menu** | Semi-transparent warm overlay on gaze-anchored world-space Canvas + SecondaryButton × 3 (Resume, End Session, Return to Lobby) | Spawns forward at Menu press, then world-locked |
 | **Reinforcement** | Post-processing warm amber shift + TextBlock (display: affirming message) + PrimaryButton ("Continue", fades in via UIAnimator after ~5s) → then PrimaryButton ("Go Again") + SecondaryButton ("Done for Today") | Full visual field after session end |
@@ -1229,12 +1337,33 @@ The plugin provides only the WebView rendering surface. All browser interaction 
 
 The spike produces a clear pass/fail on Config A. If fail → Config B is already fully specified.
 
+**Spike-Dependent vs. Stable Sections:**
+
+The following sections of this spec are stable regardless of spike outcome (Config A or B):
+
+| Section | Stability | Notes |
+|---------|-----------|-------|
+| 3D environment design (Layer 1) | **Stable** | No WebView dependency |
+| Color system, typography, spacing | **Stable** | Apply to both configs |
+| PrimaryButton, SecondaryButton, Card, StatusIndicator, LoadingIndicator prefabs | **Stable** | Used in both configs |
+| Pause menu, reinforcement screen compositions | **Stable** | No WebView chrome involvement |
+| Controller mapping, interaction patterns | **Stable** | Independent of browser chrome |
+| All user journey flows | **Stable** | Flow logic unchanged; only the visual implementation of URL input varies |
+| TextInputField prefab | **Spike-dependent** | Config A: plugin handles input. Config B: custom prefab as specified. |
+| Landing page composition | **Spike-dependent** | Config A: simplified layout (fewer custom elements). Config B: full composition as specified. |
+| "Go" submit button | **Spike-dependent** | Config A: may be unnecessary. Config B: required as specified. |
+| Browser chrome (URL bar, nav buttons) | **Spike-dependent** | Config A: plugin-provided. Config B: custom build from prefab library. |
+
+Developers should build all **Stable** items first (Phases 1–3 in roadmap). **Spike-dependent** items should not begin implementation until the Phase 0 spike concludes.
+
 ### Implementation Roadmap
 
 **Phase 0 — WebView Spike (Pre-MVP):**
 - Evaluate WebView plugin capabilities
 - Test Config A acceptance criteria
 - Decision determines final prefab scope
+- Verify programmatic keyboard event dispatch (arrow keys) for slide navigation mechanism
+- Verify Quest 3 passthrough camera QR code scanning feasibility
 
 **Phase 1 — Foundation (Build First):**
 
@@ -1339,7 +1468,12 @@ StageMind has exactly one form interaction: the URL input field.
 | Error | Error Card appears below/overlapping input area | Field remains filled with entered URL |
 | Re-editing | Tap field again to modify | Keyboard reopens with existing text |
 
-**Validation approach:** No client-side URL validation. Any string the user submits gets sent to the WebView. If it's not a valid URL, the WebView will fail to load and the error pattern handles it. This avoids false negatives (rejecting valid but unusual URLs) and keeps the implementation simple.
+**Validation approach:** Minimal client-side validation with a permissive stance to avoid rejecting valid but unusual URLs:
+
+1. **Protocol enforcement:** The submitted string must start with `https://` (or `http://` — auto-upgraded to `https://`). If no protocol is present, prepend `https://` automatically. Reject non-HTTP protocols (`javascript:`, `file:`, `ftp:`, `data:`) — these are blocked silently by prepending `https://` to the raw input.
+2. **Domain allowlist (soft):** No domain restriction for MVP — the app loads any HTTPS URL. However, the landing page instructions explicitly guide users toward Google Slides, Canva, and PowerPoint Online. If Meta's Quest Store review requires content restrictions, implement a domain allowlist limited to known presentation platforms (`docs.google.com`, `*.canva.com`, `*.sharepoint.com`, `*.office.com`, `onedrive.live.com`, `prezi.com`, `slides.com`). This allowlist is a configurable array, not hardcoded logic, to enable rapid expansion.
+3. **Basic format check:** Reject strings with no dot (`.`) after the domain — catches accidental single-word submissions. Show: "That doesn't look like a link. Try pasting the full URL from your browser."
+4. **No content filtering:** The WebView itself does not implement content filtering beyond protocol enforcement. If the loaded page contains inappropriate content, that is between the user and their own URL. For Quest Store compliance, document this as equivalent to a web browser's content model — the app loads user-provided URLs, it does not curate content.
 
 **Error recovery:** The entered URL persists in the field after an error. The user can edit it without retyping from scratch. The error Card provides specific guidance based on the failure type. Recovery always loops back to submission — never restarts the flow.
 
@@ -1371,7 +1505,7 @@ StageMind has no spatial navigation — the user stands at the podium for the en
 | Reinforcement | Rehearsal | "Go Again" pressed | Warm lighting returns to normal, rehearsal resumes |
 | Reinforcement | Lobby | "Done for Today" pressed | Lighting returns to lobby warmth, empty room |
 | Lobby | Slides Loaded | New URL loaded | Same as initial load flow |
-| Any | App Exit | Quest system exit | App closes, no state saved |
+| Lobby | App Exit | "Quit StageMind" button on landing page or Quest system exit (long-press Oculus button) | App closes via `Application.Quit()`, no state saved |
 
 **Rule:** No "Are you sure?" confirmation dialogs anywhere. Every action is immediately reversible (you can always start another session), so confirmations add friction without providing safety.
 
@@ -1476,9 +1610,23 @@ No responsive adaptation needed — Unity's OpenXR handles stereo rendering, dis
 | Concern | Approach |
 |---------|----------|
 | **One-handed operation** | All interactions use the right controller only (trigger + B). Left controller used only for Menu button (pause). No two-handed interactions required. |
-| **Seated use** | The experience works while seated — the user's position relative to the podium and laptop is configurable via Unity's XR Origin height. Standing is preferred but not required. |
+| **Seated use** | The experience works while seated. Standing is preferred but not required. See Seated Mode Adaptation below. |
 | **Minimal physical movement** | No head tracking for gameplay purposes. No reaching, grabbing, or physical gestures. The user stands (or sits) in one place and points. |
 | **Controller simplicity** | Three buttons total. No thumbstick use, no complex gestures, no simultaneous button combinations. Designed for users with zero VR experience. |
+
+**Seated Mode Adaptation:**
+
+The entire spatial relationship (podium, laptop, audience sightline) must adapt when the user is seated. A standing-height podium viewed from a seated position puts the laptop at face height and the audience above the user's eyeline — completely breaking the spatial metaphor.
+
+| Element | Standing Mode | Seated Mode |
+|---------|--------------|-------------|
+| **XR Origin Y offset** | 0 (default) | Calculated from Quest's guardian floor height minus seated eye height (~0.4m lower than standing) |
+| **Podium height** | Standard podium (~1.1m) | Lowered proportionally to maintain the same relative chest-height position |
+| **Laptop tilt angle** | 20-30° above flat | Adjusted to maintain comfortable downward glance from seated eye height (~15-25°) |
+| **Audience eye level** | At speaker's eye level (standing) | At speaker's eye level (seated) — audience seating plane shifts down proportionally |
+| **Detection method** | Quest's `OVRManager.isUserPresent` + tracked head height at app launch compared to guardian floor | If tracked head height is below 1.2m from floor at launch, assume seated and apply offset |
+
+**Implementation:** At app launch, read the user's tracked head height relative to the guardian floor. If below a threshold (~1.2m), apply a vertical offset to the entire scene (podium, audience, environment) that restores the correct spatial relationships. This is a single Y-axis transform on the environment parent object — not a reconfiguration of individual elements. The user can also toggle seated/standing from the lobby landing page if the automatic detection is wrong.
 
 **Cognitive Accessibility:**
 
@@ -1568,8 +1716,13 @@ The confidence monitor (laptop as prompter) was designed specifically to reduce 
 |-----------|--------|-----------|
 | **No screen reader support** | VR platforms lack screen reader APIs. Unity's accessibility module is nascent. | All UI is simple enough to be self-explanatory visually. Copy voice is descriptive. |
 | **No keyboard navigation** | VR input is controller-based. No physical keyboard connected. | Three-button controller mapping is simpler than keyboard navigation. |
-| **No high-contrast mode** | Would break the natural minimalism aesthetic and spatial realism. | Base palette already targets WCAG AA contrast. Warm tones are comfortable for most users. |
 | **Requires binocular vision** | Stereoscopic VR requires two functioning eyes for depth perception. | The app is primarily 2D UI on flat surfaces — depth perception is helpful but not essential for core functionality. |
 | **Requires hand dexterity** | Controller buttons require finger movement. | Minimal input (3 buttons). No complex gestures or simultaneous presses. |
 
-These limitations are inherent to the VR platform, not design choices. They should be revisited as VR accessibility APIs mature.
+The above limitations (no screen reader, no keyboard navigation, binocular vision, hand dexterity) are inherent to the VR platform, not design choices. They should be revisited as VR accessibility APIs mature.
+
+**Design trade-off (not a platform limitation):**
+
+| Trade-off | Reason | Mitigation |
+|-----------|--------|-----------|
+| **No high-contrast mode** | A high-contrast mode would break the natural minimalism aesthetic and spatial realism that serve the product's anxiety-reduction thesis. This is a deliberate design choice, not a platform constraint. | Base palette targets WCAG AA contrast (4.5:1) for all text. The `ColorPalette` ScriptableObject architecture allows a high-contrast palette variant to be added post-MVP as an accessibility setting with a single asset swap — the infrastructure supports it even though MVP does not ship it. |

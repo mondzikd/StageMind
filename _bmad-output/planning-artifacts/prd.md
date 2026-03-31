@@ -336,7 +336,7 @@ The WebView spike is the project's go/no-go decision point. Must be completed an
 - **FR9:** User can see a seated audience of 50 static attendees facing the stage
 - **FR10:** User can see their presentation slides displayed on a projector screen behind/beside them on stage
 - **FR11:** User can look around the stage environment freely (full 360° head tracking)
-- **FR12:** User experiences a comfortable visual transition (fade) when moving between lobby and stage
+- **FR12:** User experiences a visual transition (fade-to-black) when moving between lobby and stage
 
 ### Rehearsal Control
 
@@ -376,20 +376,20 @@ The WebView spike is the project's go/no-go decision point. Must be completed an
 
 - **NFR7:** 30-minute continuous rehearsal session with zero crashes, freezes, or WebView hang events using a published Google Slides deck of up to 60 slides on Quest 3
 - **NFR8:** If network drops mid-session, slides already rendered remain visible on the projector screen; app does not crash; non-intrusive notification appears when connectivity is restored or when browser navigation is attempted
-- **NFR9:** Embedded browser does not accumulate memory that degrades performance over multiple consecutive rehearsal sessions (lobby → stage → lobby → stage cycle)
-- **NFR10:** App does not cause abnormal controller battery drain beyond standard Quest application rates
+- **NFR9:** Embedded browser memory usage stays within 15% of initial allocation after 5 consecutive rehearsal sessions (lobby → stage → lobby → stage cycle) with no frame rate degradation below 72fps
+- **NFR10:** Controller battery drain during a 30-minute session does not exceed drain rates of comparable single-player Quest applications under similar input frequency
 
 ### VR Comfort
 
 - **NFR11:** All scene transitions use fade-to-black or cross-fade — no hard cuts, teleportation, or sudden camera movement that could induce motion sickness
 - **NFR12:** User's viewpoint remains stable and grounded at all times — no artificial locomotion, no camera shake, no forced head movement
-- **NFR13:** Stage environment maintains consistent spatial scale appropriate to a real conference room — no uncanny proportions that break spatial presence
+- **NFR13:** Stage environment maintains consistent spatial scale matching a mid-size conference room (stage area approximately 4m × 3m, audience seating depth 8–10m, ceiling height 3–4m) — no disproportionate elements that break spatial presence
 
 ### Integration
 
 - **NFR14:** Embedded browser reliably renders published/view-only presentation URLs from Google Slides, Canva, and PowerPoint Online without layout corruption or missing content
 - **NFR15:** VR controller input (pointing, clicking, scrolling) maps correctly to browser interaction without input lag or missed clicks
-- **NFR16:** Embedded browser supports standard web navigation (URL entry, back, forward, refresh) with predictable behavior matching user expectations
+- **NFR16:** Embedded browser supports standard web navigation: URL entry, back, forward, and refresh — each action completes within 1 second under normal network conditions
 
 ### Privacy & Data
 
@@ -399,4 +399,4 @@ The WebView spike is the project's go/no-go decision point. Must be completed an
 ### Distribution
 
 - **NFR19:** App meets all Meta Quest Store submission requirements including privacy policy, data collection disclosure, content rating, and review guidelines
-- **NFR20:** App package size remains under the Quest Store recommended limits for optimal download and installation experience
+- **NFR20:** App package size remains under 2GB to meet Quest Store recommended limits for optimal download and installation experience

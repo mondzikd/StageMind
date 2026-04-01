@@ -1,0 +1,93 @@
+# generated: 2026-03-31
+# last_updated: 2026-03-31
+# project: BMAD
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: "{project-root}/_bmad-output/implementation-artifacts"
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-03-31
+last_updated: 2026-03-31
+project: BMAD
+project_key: NOKEY
+tracking_system: file-system
+story_location: "{project-root}/_bmad-output/implementation-artifacts"
+
+development_status:
+  # Epic 1: Project Foundation & WebView Viability Gate
+  epic-1: backlog
+  1-1-unity-project-initialization-and-platform-configuration: backlog
+  1-2-core-state-machine-and-game-state-manager: backlog
+  1-3-webview-interface-contract-and-vuplex-integration: backlog
+  1-4-input-system-foundation: backlog
+  1-5-webview-spike-quest-3-hardware-validation: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: The Lobby Experience — Setup Your Stage
+  epic-2: backlog
+  2-1-design-system-foundation-color-typography-and-spacing-tokens: backlog
+  2-2-ui-interaction-system-pointer-buttons-and-animator: backlog
+  2-3-ui-prefab-library-input-cards-and-indicators: backlog
+  2-4-lobby-3d-environment-the-empty-conference-room: backlog
+  2-5-landing-page-and-url-input-load-your-slides: backlog
+  2-6-slide-preview-and-lobby-to-loaded-transition: backlog
+  2-7-error-handling-and-stateless-design: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: The Rehearsal Experience — Stand and Deliver
+  epic-3: backlog
+  3-1-audience-system-50-characters-with-gpu-instancing: backlog
+  3-2-start-rehearsal-audience-appears-and-scene-transition: backlog
+  3-3-slide-control-and-rehearsal-immersion: backlog
+  3-4-pause-menu-the-escape-hatch: backlog
+  3-5-audience-ambient-audio-spatial-presence: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: The Reinforcement Moment — Feel the Warmth
+  epic-4: backlog
+  4-1-reinforcement-sequence-impact-linger-and-transition: backlog
+  4-2-message-pool-and-selection-system: backlog
+  4-3-post-reinforcement-flow-go-again-or-done-for-today: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: QR Code Scanning — Skip the Keyboard (Conditional)
+  epic-5: backlog
+  5-1-qr-scanner-integration-passthrough-camera-and-decoding: backlog
+  5-2-qr-code-to-slide-loading-end-to-end-flow: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Launch Readiness — Polish, Accessibility & Quest Store
+  epic-6: backlog
+  6-1-seated-mode-adaptation: backlog
+  6-2-headset-removal-handling: backlog
+  6-3-performance-profiling-and-stability-validation: backlog
+  6-4-quest-store-submission-package: backlog
+  epic-6-retrospective: optional

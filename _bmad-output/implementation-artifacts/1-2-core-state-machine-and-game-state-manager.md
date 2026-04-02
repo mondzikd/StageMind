@@ -1,6 +1,6 @@
 # Story 1.2: Core State Machine & Game State Manager
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -424,6 +424,7 @@ None — no blocking issues encountered during implementation.
 ### Change Log
 
 - 2026-04-01: Implemented Story 1.2 — Core State Machine & Game State Manager (all 6 tasks, all 5 ACs)
+- 2026-04-02: Code review fixes applied — hardened `GameStateManager` initialization, added null/duplicate guards for `IStateAware` listeners, and expanded tests to validate `GameStateManager` wrapper behavior.
 
 ### File List
 
@@ -448,3 +449,19 @@ None — no blocking issues encountered during implementation.
 | `RehearsalStateTests.cs` | `Tests/EditMode/` | Edit Mode test |
 | `ReinforcementStateTests.cs` | `Tests/EditMode/` | Edit Mode test |
 | `PausedStateTests.cs` | `Tests/EditMode/` | Edit Mode test |
+
+### Senior Developer Review (AI)
+
+- Reviewer: Dominik
+- Date: 2026-04-02
+- Outcome: Approved after fixes
+
+**Findings addressed:**
+- High: `GameStateManager` event/property access could hit a null `_stateMachine` before `Awake` initialization.
+- Medium: `StateMachine.RegisterStateAware()` accepted null/duplicate listeners, risking transition dispatch issues.
+- Medium: `GameStateManager` wrapper behavior lacked direct test coverage.
+
+**Fixes applied:**
+- `GameStateManager`: Added safe lazy construction and idempotent initialization for `_stateMachine`, and guarded early API usage paths.
+- `StateMachine`: Added null/duplicate listener registration protection and safe dispatch null checks.
+- `GameStateManagerTests`: Added wrapper-level tests for initialization, event forwarding, and listener registration/unregistration forwarding.

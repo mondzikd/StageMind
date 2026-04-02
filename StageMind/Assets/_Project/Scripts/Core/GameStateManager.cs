@@ -7,13 +7,14 @@ namespace StageMind
     {
         public event Action<GameStateType, GameStateType> OnStateChanged
         {
-            add => _stateMachine.OnStateChanged += value;
-            remove => _stateMachine.OnStateChanged -= value;
+            add => EnsureStateMachineCreated().OnStateChanged += value;
+            remove => EnsureStateMachineCreated().OnStateChanged -= value;
         }
 
-        public GameStateType CurrentStateType => _stateMachine.CurrentStateType;
+        public GameStateType CurrentStateType => EnsureStateMachineCreated().CurrentStateType;
 
         private StateMachine _stateMachine;
+        private bool _isInitialized;
 
         private void Awake()
         {
@@ -22,28 +23,60 @@ namespace StageMind
 
         private void Update()
         {
+            if (!_isInitialized)
+            {
+                Initialize();
+            }
+
             _stateMachine.Update();
         }
 
         public void TransitionTo(GameStateType target)
         {
+            if (!_isInitialized)
+            {
+                Initialize();
+            }
+
             _stateMachine.TransitionTo(target);
         }
 
         public void RegisterStateAware(IStateAware listener)
         {
+            if (!_isInitialized)
+            {
+                Initialize();
+            }
+
             _stateMachine.RegisterStateAware(listener);
         }
 
         public void UnregisterStateAware(IStateAware listener)
         {
+            if (!_isInitialized)
+            {
+                Initialize();
+            }
+
             _stateMachine.UnregisterStateAware(listener);
         }
 
         private void Initialize()
         {
-            _stateMachine = new StateMachine(CreateState);
+            if (_isInitialized)
+            {
+                return;
+            }
+
+            _stateMachine = EnsureStateMachineCreated();
             _stateMachine.Initialize();
+            _isInitialized = true;
+        }
+
+        private StateMachine EnsureStateMachineCreated()
+        {
+            _stateMachine ??= new StateMachine(CreateState);
+            return _stateMachine;
         }
 
         private IGameState CreateState(GameStateType stateType, GameStateType previousStateType)

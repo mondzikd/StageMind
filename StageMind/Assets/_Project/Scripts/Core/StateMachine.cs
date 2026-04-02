@@ -34,6 +34,11 @@ namespace StageMind
 
         public void Initialize()
         {
+            if (_currentState != null)
+            {
+                return;
+            }
+
             CurrentStateType = GameStateType.LobbyLanding;
             _currentState = _stateFactory(GameStateType.LobbyLanding, GameStateType.LobbyLanding);
             _currentState.Enter();
@@ -56,8 +61,14 @@ namespace StageMind
 
             for (int i = 0; i < _stateAwareListeners.Count; i++)
             {
-                _stateAwareListeners[i].OnStateExit(previousStateType);
-                _stateAwareListeners[i].OnStateEnter(target);
+                var listener = _stateAwareListeners[i];
+                if (listener == null)
+                {
+                    continue;
+                }
+
+                listener.OnStateExit(previousStateType);
+                listener.OnStateEnter(target);
             }
 
             OnStateChanged?.Invoke(previousStateType, target);
@@ -70,11 +81,27 @@ namespace StageMind
 
         public void RegisterStateAware(IStateAware listener)
         {
+            if (listener == null)
+            {
+                Debug.LogWarning("[StageMind] Ignoring null IStateAware listener registration.");
+                return;
+            }
+
+            if (_stateAwareListeners.Contains(listener))
+            {
+                return;
+            }
+
             _stateAwareListeners.Add(listener);
         }
 
         public void UnregisterStateAware(IStateAware listener)
         {
+            if (listener == null)
+            {
+                return;
+            }
+
             _stateAwareListeners.Remove(listener);
         }
     }

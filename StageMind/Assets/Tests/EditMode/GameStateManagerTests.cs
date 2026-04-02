@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using StageMind.Tests.EditMode.Mocks;
+using UnityEngine;
 
 namespace StageMind.Tests.EditMode
 {
@@ -9,6 +10,8 @@ namespace StageMind.Tests.EditMode
     {
         private StateMachine _stateMachine;
         private List<IGameState> _createdStates;
+        private GameObject _gameStateManagerObject;
+        private GameStateManager _gameStateManager;
 
         [SetUp]
         public void SetUp()
@@ -16,6 +19,15 @@ namespace StageMind.Tests.EditMode
             _createdStates = new List<IGameState>();
             _stateMachine = new StateMachine(TestStateFactory);
             _stateMachine.Initialize();
+
+            _gameStateManagerObject = new GameObject("GameStateManagerTests_Object");
+            _gameStateManager = _gameStateManagerObject.AddComponent<GameStateManager>();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            Object.DestroyImmediate(_gameStateManagerObject);
         }
 
         private IGameState TestStateFactory(GameStateType stateType, GameStateType previousStateType)
@@ -176,6 +188,46 @@ namespace StageMind.Tests.EditMode
 
             Assert.AreEqual(1, mock1.EnteredStates.Count);
             Assert.AreEqual(1, mock2.EnteredStates.Count);
+        }
+
+        [Test]
+        public void GameStateManager_Awake_InitializesToLobbyLanding()
+        {
+            Assert.AreEqual(GameStateType.LobbyLanding, _gameStateManager.CurrentStateType);
+        }
+
+        [Test]
+        public void GameStateManager_TransitionTo_ValidTransition_FiresOnStateChanged()
+        {
+            GameStateType? firedPrevious = null;
+            GameStateType? firedCurrent = null;
+            _gameStateManager.OnStateChanged += (previous, current) =>
+            {
+                firedPrevious = previous;
+                firedCurrent = current;
+            };
+
+            _gameStateManager.TransitionTo(GameStateType.LobbySlidesLoaded);
+
+            Assert.AreEqual(GameStateType.LobbyLanding, firedPrevious);
+            Assert.AreEqual(GameStateType.LobbySlidesLoaded, firedCurrent);
+        }
+
+        [Test]
+        public void GameStateManager_RegisterAndUnregisterStateAware_ForwardsToStateMachine()
+        {
+            var mock = new MockStateAware();
+            _gameStateManager.RegisterStateAware(mock);
+            _gameStateManager.TransitionTo(GameStateType.LobbySlidesLoaded);
+
+            Assert.AreEqual(1, mock.EnteredStates.Count);
+            Assert.AreEqual(1, mock.ExitedStates.Count);
+
+            _gameStateManager.UnregisterStateAware(mock);
+            _gameStateManager.TransitionTo(GameStateType.LobbyLanding);
+
+            Assert.AreEqual(1, mock.EnteredStates.Count);
+            Assert.AreEqual(1, mock.ExitedStates.Count);
         }
 
         private void NavigateTo(StateMachine sm, GameStateType target)

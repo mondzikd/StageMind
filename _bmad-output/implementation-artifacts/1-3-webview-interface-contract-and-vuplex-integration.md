@@ -1,6 +1,8 @@
 # Story 1.3: WebView Interface Contract & Vuplex Integration
 
-Status: review
+Status: in-progress
+
+> Scope pivot (2026-04-02): Vuplex integration is currently replaced by a free `BackendSlideWebViewController` path that consumes backend-generated slide images from public links (starting with Google Slides). This preserves the `IWebViewController` contract while removing paid plugin dependency for MVP.
 
 ## Story
 
@@ -59,7 +61,7 @@ So that the app can display slides from any web-based presentation tool without 
 
 - [x] Task 3: Implement `VuplexWebViewController` (AC: #3, #4, #5)
   - [x] 3.1 Create `VuplexWebViewController.cs` in `Scripts/WebView/` as a MonoBehaviour implementing `IWebViewController`
-  - [x] 3.2 Import Vuplex 3D WebView for Android from the Asset Store into `Assets/Plugins/Vuplex/`
+  - [ ] 3.2 Import Vuplex 3D WebView for Android from the Asset Store into `Assets/Plugins/Vuplex/`
   - [x] 3.3 Initialize Vuplex via `Web.CreateWebView()` and `IWebView.Init(width, height)` — single instance, reused across lobby/rehearsal cycles
   - [x] 3.4 Blit Vuplex `Texture2D` to the provided `RenderTexture` using `Graphics.Blit()` — update only on dirty flag (after `SendKeyEvent` or `LoadUrl`, not per-frame)
   - [x] 3.5 Map `SendKeyEvent(KeyCode)` to Vuplex `SendKey(string)` — `KeyCode.RightArrow` → `"ArrowRight"`, `KeyCode.LeftArrow` → `"ArrowLeft"`
@@ -96,7 +98,7 @@ So that the app can display slides from any web-based presentation tool without 
   - [x] 6.10 Test: string with dot passes (e.g., `"slides.google.com"`)
   - [x] 6.11 Test: empty string rejected
   - [x] 6.12 Test: whitespace-only string rejected
-  - [x] 6.13 Run all tests and verify 100% pass
+  - [ ] 6.13 Run all tests and verify 100% pass
 
 - [x] Task 7: Verification pass (all ACs)
   - [x] 7.1 Verify all files are in correct directories per architecture spec
@@ -493,21 +495,36 @@ Claude claude-4.6-opus-high-thinking (Cursor Agent)
 
 - **Task 1:** Created `IWebViewController.cs` in `Scripts/Core/` matching the exact interface specification from Dev Notes. Interface includes 4 methods, 3 events, and 2 properties. Uses `System.Action` delegates for events per existing project patterns.
 - **Task 2:** Created `WebViewError.cs` in `Scripts/WebView/` with all 4 enum values (NetworkFailure, LoginWallDetected, PageLoadTimeout, Unknown). Placed in WebView directory as system-specific enum per architecture rules.
-- **Task 3:** Created `VuplexWebViewController.cs` in `Scripts/WebView/` wrapped in `#if VUPLEX_WEBVIEW`. Implementation includes: single WebView instance reuse, dirty-flag texture updates via `Graphics.Blit()` in `LateUpdate()`, KeyCode-to-Vuplex key mapping (switch statement, no Dictionary), 15-second load timeout coroutine, login wall detection via UrlChanged domain comparison against 4 known auth domains, crash recovery with 10-second retry window, Cleanup() calling `Web.ClearAllData()` then `Dispose()`. Note: subtask 3.2 (Vuplex import) deferred — plugin is a commercial asset that must be manually imported by the developer.
-- **Task 4:** Created `UrlValidator.cs` in `Scripts/WebView/` as static utility. Implements protocol stripping (strips blocked protocol prefix + leading slashes), https:// prepending, domain dot validation, and configurable (but unenforced) domain allowlist. Error messages follow "supportive friend" copy voice per UX-DR28.
+- **Task 3:** Created `VuplexWebViewController.cs` in `Scripts/WebView/` wrapped in `#if VUPLEX_WEBVIEW`. Implementation includes: single WebView instance reuse, dirty-flag texture updates via `Graphics.Blit()` in `LateUpdate()`, KeyCode-to-Vuplex key mapping (switch statement, no Dictionary), 15-second load timeout coroutine, explicit `LoadFailed` subscription mapped to `OnLoadError(WebViewError.NetworkFailure)`, login wall detection via UrlChanged domain comparison against 4 known auth domains, and crash recovery constrained to a single retry attempt per 10-second window. `Cleanup()` calls `Web.ClearAllData()` then `Dispose()`. Subtask 3.2 remains pending — Vuplex import is a manual developer step.
+- **Task 4:** Created `UrlValidator.cs` in `Scripts/WebView/` as static utility. Implements protocol stripping (strips blocked protocol prefix + leading slashes), https:// prepending, domain dot validation, and configurable domain allowlist with check structure present but intentionally not enforced in MVP. Error messages follow "supportive friend" copy voice per UX-DR28.
 - **Task 5:** Created `MockWebViewController.cs` in `Tests/EditMode/Mocks/` implementing `IWebViewController`. Records all method calls (LoadedUrls, SentKeyEvents, InitializeCallCount, CleanupCallCount), allows programmatic event triggering (SimulateLoadSuccess, SimulateLoadError, SimulateCrash), and tracks IsLoading/IsReady state. Follows existing MockStateAware pattern.
-- **Task 6:** Created `UrlValidatorTests.cs` in `Tests/EditMode/` with 15 tests covering: valid HTTPS/HTTP passthrough, no-protocol prepending, blocked protocol handling (javascript/file/ftp/data), no-dot rejection, empty/whitespace/null rejection, URLs with paths, and domain validation. Test naming follows `Method_Scenario_Expected` convention.
+- **Task 6:** Created `UrlValidatorTests.cs` in `Tests/EditMode/` with 15 tests covering: valid HTTPS/HTTP passthrough, no-protocol prepending, blocked protocol handling (javascript/file/ftp/data), no-dot rejection, empty/whitespace/null rejection, URLs with paths, and domain validation. Test naming follows `Method_Scenario_Expected` convention. Unity Test Runner execution remains pending for subtask 6.13.
 - **Task 7:** Full verification pass confirmed: all files in correct directories, naming conventions followed, one class per file, StageMind namespace consistent, no asmdef changes needed (Vuplex not imported).
 
 ### Change Log
 
 - 2026-04-02: Story 1.3 implementation complete — IWebViewController interface, WebViewError enum, VuplexWebViewController (conditional), UrlValidator, MockWebViewController, UrlValidatorTests (15 tests)
+- 2026-04-02: Code review fixes applied — added Vuplex `LoadFailed` handling, tightened crash retry window behavior, added explicit allowlist check structure in `UrlValidator`, corrected task checkboxes for deferred/manual verification items
+- 2026-04-02: Added `BackendSlideWebViewController` for free MVP path using backend-generated slide images and `IWebViewController` compatibility
+- 2026-04-02: Added `MockBackendSlideWebViewController` for local no-backend demo/testing with serialized mock slide textures and arrow-key navigation
+
+### Senior Developer Review (AI)
+
+- 2026-04-02: Changes requested issues addressed in code and story:
+  - Fixed `VuplexWebViewController` to subscribe to `LoadFailed` and map load failures to `WebViewError.NetworkFailure`.
+  - Updated crash recovery logic to prevent repeated retries inside the 10-second window.
+  - Added `OnLoadError(WebViewError.Unknown)` signaling for initialization/recovery failure paths.
+  - Added domain allowlist check structure (non-enforced for MVP) to satisfy future compliance hook requirement.
+  - Corrected task completion markers for deferred Vuplex import and pending Unity Test Runner execution.
+  - Story remains `in-progress` until manual import (`3.2`) and Unity Test Runner verification (`6.13`) are completed.
 
 ### File List
 
 - `Assets/_Project/Scripts/Core/IWebViewController.cs` (new)
 - `Assets/_Project/Scripts/WebView/WebViewError.cs` (new)
 - `Assets/_Project/Scripts/WebView/VuplexWebViewController.cs` (new, conditional #if VUPLEX_WEBVIEW)
+- `Assets/_Project/Scripts/WebView/BackendSlideWebViewController.cs` (new, backend image-based free alternative)
+- `Assets/_Project/Scripts/WebView/MockBackendSlideWebViewController.cs` (new, local mock adapter with in-editor slide list)
 - `Assets/_Project/Scripts/WebView/UrlValidator.cs` (new)
 - `Assets/Tests/EditMode/Mocks/MockWebViewController.cs` (new)
 - `Assets/Tests/EditMode/UrlValidatorTests.cs` (new)

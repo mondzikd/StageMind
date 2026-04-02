@@ -18,8 +18,8 @@ namespace StageMind
         private bool _isReady;
         private string _requestedUrlDomain;
         private Coroutine _loadTimeoutCoroutine;
-        private float _lastCrashTime = -CrashRetryWindowSeconds;
-        private bool _isRecoveringFromCrash;
+        private float _lastRecoveryAttemptTime = -CrashRetryWindowSeconds;
+        private bool _hasReportedLoadFailure;
 
         private static readonly string[] AuthDomains =
         {
@@ -57,6 +57,7 @@ namespace StageMind
             {
                 Debug.LogError($"[VuplexWebViewController] Initialization failed: {ex.Message}");
                 _isReady = false;
+                OnLoadError?.Invoke(WebViewError.Unknown);
             }
         }
 
@@ -71,6 +72,7 @@ namespace StageMind
             _requestedUrlDomain = ExtractDomain(url);
             _isLoading = true;
             _isDirty = true;
+            _hasReportedLoadFailure = false;
             _webView.LoadUrl(url);
 
             CancelLoadTimeout();
@@ -137,6 +139,7 @@ namespace StageMind
             if (_webView == null) return;
 
             _webView.LoadProgressChanged += HandleLoadProgressChanged;
+            _webView.LoadFailed += HandleLoadFailed;
             _webView.UrlChanged += HandleUrlChanged;
             _webView.Terminated += HandleTerminated;
         }
@@ -146,6 +149,7 @@ namespace StageMind
             if (_webView == null) return;
 
             _webView.LoadProgressChanged -= HandleLoadProgressChanged;
+            _webView.LoadFailed -= HandleLoadFailed;
             _webView.UrlChanged -= HandleUrlChanged;
             _webView.Terminated -= HandleTerminated;
         }
@@ -163,15 +167,19 @@ namespace StageMind
                 case ProgressChangeType.Finished:
                     _isLoading = false;
                     CancelLoadTimeout();
+                    _hasReportedLoadFailure = false;
                     OnLoadSuccess?.Invoke(_webView.Url);
                     break;
 
                 case ProgressChangeType.Failed:
-                    _isLoading = false;
-                    CancelLoadTimeout();
-                    OnLoadError?.Invoke(WebViewError.NetworkFailure);
+                    ReportNetworkFailure();
                     break;
             }
+        }
+
+        private void HandleLoadFailed(object sender, LoadFailedEventArgs args)
+        {
+            ReportNetworkFailure();
         }
 
         private void HandleUrlChanged(object sender, UrlChangedEventArgs args)
@@ -199,16 +207,16 @@ namespace StageMind
             OnCrash?.Invoke();
 
             float now = Time.unscaledTime;
-            if (_isRecoveringFromCrash && (now - _lastCrashTime) < CrashRetryWindowSeconds)
+            if ((now - _lastRecoveryAttemptTime) < CrashRetryWindowSeconds)
             {
                 Debug.LogError("[VuplexWebViewController] Second crash within retry window. Not retrying.");
                 _isReady = false;
                 _isLoading = false;
+                OnLoadError?.Invoke(WebViewError.Unknown);
                 return;
             }
 
-            _lastCrashTime = now;
-            _isRecoveringFromCrash = true;
+            _lastRecoveryAttemptTime = now;
             AttemptRecovery();
         }
 
@@ -232,13 +240,13 @@ namespace StageMind
                 await _webView.Init(_targetRenderTexture.width, _targetRenderTexture.height);
                 SubscribeToEvents();
                 _isReady = true;
-                _isRecoveringFromCrash = false;
                 Debug.Log("[VuplexWebViewController] Crash recovery successful.");
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[VuplexWebViewController] Crash recovery failed: {ex.Message}");
                 _isReady = false;
+                OnLoadError?.Invoke(WebViewError.Unknown);
             }
         }
 
@@ -279,6 +287,19 @@ namespace StageMind
             {
                 return string.Empty;
             }
+        }
+
+        private void ReportNetworkFailure()
+        {
+            if (_hasReportedLoadFailure)
+            {
+                return;
+            }
+
+            _hasReportedLoadFailure = true;
+            _isLoading = false;
+            CancelLoadTimeout();
+            OnLoadError?.Invoke(WebViewError.NetworkFailure);
         }
     }
 }

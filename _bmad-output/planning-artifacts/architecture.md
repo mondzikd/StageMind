@@ -73,7 +73,7 @@ The remaining areas (Rehearsal Control FR13-FR15, Post-Session FR16-FR17, Error 
 
 1. **Scene State Machine & Transition Orchestration** — The app has 5 distinct states (Lobby/Landing, Lobby/SlidesLoaded, Rehearsal, Reinforcement, Paused). Each transition is a coordinated multi-system event: audience visibility, lighting state, audio state, UI visibility, and input routing all change simultaneously. A centralized state orchestrator that sequences these transitions is required — independent systems reacting to a shared enum risks race conditions and partially-transitioned states. The state machine logic must be pure C# separable from MonoBehaviour to enable Edit Mode testing without booting the full app.
 
-2. **WebView as First-Class Subsystem** — The WebView is not just a component — it's practically a co-equal runtime with its own memory management, crash domain, and input pipeline. The architecture must treat it as an integration boundary with a clean interface contract: initialize, load URL, dispatch keyboard events, handle errors, recover from crashes, cleanup on exit. WebView texture update cadence is an explicit architectural parameter — continuous rendering wastes GPU on static slide content; a dirty-flag approach (re-render on input only) keeps cost near-zero during rehearsal.
+2. **Slide Delivery as Swappable Subsystem** — The slide delivery mechanism is isolated behind `IWebViewController`, making it swappable without affecting the rest of the app. The MVP implementation (`SlideImageController`) fetches slide images via HTTP and manages a texture array — dramatically simpler than a full WebView runtime. The architecture preserves the interface contract (initialize, load URL, dispatch key events for navigation, handle errors, cleanup) so a post-MVP browser-based implementation can be swapped in without touching other systems. This abstraction proved its value when the original Vuplex plan was replaced with image fetching.
 
 3. **Performance Budget Management** — Affects every system. The 72fps target on mobile VR is the most pervasive constraint. Character rendering, WebView update frequency, UI rendering, audio processing, and post-processing effects all compete for the same GPU/CPU budget. Frame time profiling is a critical quality gate on every build.
 
@@ -147,7 +147,7 @@ Player Settings:
 | `com.unity.xr.meta-openxr` (≥2.2) | Unity Registry | Quest-specific OpenXR extensions — passthrough, system keyboard, headset events |
 | Meta XR Simulator | Unity Asset Store (free) | Development without physical headset — simulates Quest 3 on Mac |
 | TextMeshPro | Unity Registry (included) | SDF text rendering — non-negotiable for VR text legibility |
-| Vuplex 3D WebView for Android | Asset Store (commercial) | WebView rendering as texture — **Phase 0 spike dependency** |
+| ~~Vuplex 3D WebView for Android~~ | ~~Asset Store (commercial)~~ | *Removed for MVP — replaced by `SlideImageController` using `UnityWebRequest` for slide image fetching. Post-MVP: [SimpleUnity3DWebView](https://github.com/t-34400/SimpleUnity3DWebView) (GitHub, MIT license, free) identified as potential browser upgrade.* |
 
 **Packages explicitly NOT included:**
 
@@ -317,8 +317,8 @@ LobbySlidesLoaded → LobbyLanding    (new URL entered / error recovery)
 
 | Attribute | Value |
 |-----------|-------|
-| **Decision** | Abstract `IWebViewController` interface wrapping the concrete WebView plugin |
-| **Rationale** | Testability (mock in Edit Mode tests), swappability (change plugin without touching app code), clean integration boundary |
+| **Decision** | Abstract `IWebViewController` interface with swappable implementations |
+| **Rationale** | Testability (mock in Edit Mode tests), swappability (change slide delivery mechanism without touching app code), clean integration boundary. MVP uses `SlideImageController` (image fetching). Post-MVP can swap in a browser-based implementation (e.g., SimpleUnity3DWebView). |
 | **Affects** | WebView subsystem, error handling, slide navigation, RenderTexture management |
 
 **Interface Contract:**
@@ -348,13 +348,22 @@ public enum WebViewError
 }
 ```
 
-**Lifecycle Rules:**
+**MVP Implementation — `SlideImageController`:**
 
-- One WebView instance for the entire app session — initialized once, reused across lobby/rehearsal cycles
-- `RenderTexture` shared between projector screen and laptop confidence monitor meshes
-- Texture updates on-demand (dirty flag) — re-render only when keyboard event dispatched or page navigation occurs, not per-frame
-- On crash: attempt re-initialization once. If second failure within 10 seconds, show "restart app" message (no infinite retry loop per UX spec)
-- On app exit: `Cleanup()` clears all cookies, cache, and browsing data (NFR18)
+- Implements `IWebViewController` by fetching slide images from Google Slides published URLs via `UnityWebRequest`
+- `LoadUrl(string url)` parses the Google Slides presentation ID from the URL, fetches all slide images as `Texture2D` objects, and fires `OnLoadSuccess` when complete
+- `SendKeyEvent(KeyCode.RightArrow)` increments the slide index and updates the `RenderTexture` with the next slide texture. `SendKeyEvent(KeyCode.LeftArrow)` decrements.
+- `RenderTexture` shared between projector screen and laptop confidence monitor meshes — updated via `Graphics.Blit()` when slide index changes
+- `Cleanup()` destroys cached `Texture2D` objects and resets slide index (NFR18)
+- No crash recovery complexity — HTTP fetch failures are handled via `OnLoadError`
+- `IsLoading` is true while slide images are being fetched; `IsReady` is true after all slides are loaded
+
+**Post-MVP Browser Implementation Path:**
+
+- The `IWebViewController` interface is designed to support a full browser implementation
+- [SimpleUnity3DWebView](https://github.com/t-34400/SimpleUnity3DWebView) (MIT license, free) has been identified as a potential browser-based implementation
+- A future `SimpleWebViewController` would wrap this library, restoring embedded browser capabilities (FR5, FR6) and multi-platform slide support (Canva, PowerPoint Online)
+- The Vuplex `VuplexWebViewController` implementation remains in the codebase (behind `#if VUPLEX_WEBVIEW`) as an additional option if commercial licensing becomes acceptable
 
 ### Decision 4: Dependency Wiring — Hybrid Approach
 
@@ -751,9 +760,10 @@ StageMind/
 │   │   │   │       └── (reserved for future shared extensions)
 │   │   │   │
 │   │   │   ├── WebView/
-│   │   │   │   ├── VuplexWebViewController.cs      # IWebViewController implementation wrapping Vuplex
-│   │   │   │   ├── WebViewError.cs                 # Enum: NetworkFailure, LoginWallDetected, PageLoadTimeout, Unknown
-│   │   │   │   └── UrlValidator.cs                 # URL protocol/format validation before load
+│   │   │   │   ├── SlideImageController.cs          # MVP IWebViewController — fetches Google Slides images via UnityWebRequest
+│   │   │   │   ├── VuplexWebViewController.cs       # Post-MVP IWebViewController wrapping Vuplex (conditional #if VUPLEX_WEBVIEW)
+│   │   │   │   ├── WebViewError.cs                  # Enum: NetworkFailure, LoginWallDetected, PageLoadTimeout, Unknown
+│   │   │   │   └── UrlValidator.cs                  # URL protocol/format validation before load
 │   │   │   │
 │   │   │   ├── Input/
 │   │   │   │   ├── InputRouter.cs                  # MonoBehaviour — subscribes to Input Actions, routes via current state
@@ -890,8 +900,7 @@ StageMind/
 │   │           └── IntegrationTestScene.unity      # Minimal scene with GameStateManager + essential system MonoBehaviours
 │   │
 │   └── Plugins/
-│       └── Vuplex/                                 # WebView plugin (installed via Asset Store import)
-│           └── (vendor-managed files)
+│       └── (reserved for post-MVP browser plugin integration)
 │
 └── Builds/                                         # All build outputs (git-ignored)
     └── Quest/                                      # APK output directory
@@ -906,9 +915,12 @@ The WebView plugin (Vuplex) is isolated behind `IWebViewController`. No script o
 ```
 App Code ──→ IWebViewController (interface in Core/)
                     │
-        VuplexWebViewController (implementation in WebView/)
-                    │
-              Vuplex Plugin (in Plugins/Vuplex/)
+        ┌───────────┴───────────┐
+  SlideImageController      VuplexWebViewController
+  (MVP — image fetching)    (post-MVP — conditional)
+        │                        │
+  UnityWebRequest           Vuplex Plugin or
+  (Unity built-in)          SimpleUnity3DWebView
 ```
 
 **Integration Boundary: Platform/Quest APIs**
@@ -945,18 +957,22 @@ App Code ──→ PlatformManager / KeyboardManager / QRScannerManager
 **Data Flow:**
 
 ```
-URL Input → KeyboardManager → WebView.LoadUrl()
+URL Input → KeyboardManager → SlideImageController.LoadUrl()
+                                    │
+                              Parses Google Slides ID → Fetches slide images via UnityWebRequest
                                     │
                               OnLoadSuccess ──→ GameStateManager transitions to LobbySlidesLoaded
                               OnLoadError  ──→ ErrorHandler ──→ UI displays error Card
                                     │
-                              RenderTexture ──→ ProjectorScreen material
-                                           ──→ LaptopScreen material (shared texture)
+                              Slide textures[] ──→ Graphics.Blit(current) ──→ RenderTexture
+                                    │                                            │
+                                    │                              ProjectorScreen material
+                                    │                              LaptopScreen material (shared)
                                     │
 Controller Input → InputRouter → Current State.HandleInput()
                                     │
-                              WebView.SendKeyEvent(Arrow) ──→ slide advances
-                              (texture updates on dirty flag, not per-frame)
+                              SlideImageController.SendKeyEvent(Arrow) ──→ increments slide index
+                              Graphics.Blit(slides[newIndex], renderTexture) ──→ display updates
 ```
 
 ### Assembly Definitions

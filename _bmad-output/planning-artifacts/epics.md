@@ -153,20 +153,20 @@ This document provides the complete epic and story breakdown for StageMind, deco
 
 ## Epic List
 
-### Epic 1: Project Foundation & WebView Viability Gate
-The creator validates that the core technology is viable — a published Google Slides deck renders as a texture inside Unity on Quest 3 at 72fps with slide-advance via keyboard event dispatch. This is the go/no-go decision for the entire project. Includes Unity project initialization, core state machine backbone, WebView interface contract and Vuplex integration, and spike testing on Quest 3 hardware.
+### Epic 1: Project Foundation & Slide Delivery Viability Gate
+The creator validates that the core technology is viable — published Google Slides images are fetched and displayed as textures inside Unity on Quest 3 at 72fps with slide-advance via texture swap. This is the go/no-go decision for the entire project. Includes Unity project initialization, core state machine backbone, slide delivery interface contract and image-fetching implementation, and spike testing on Quest 3 hardware. The `IWebViewController` abstraction is preserved for a future post-MVP browser upgrade path.
 **FRs covered:** None directly (foundational infrastructure). Enables all subsequent FRs.
-**Additional Requirements covered:** Project initialization, platform configuration, package installation, GameStateManager + state classes, IWebViewController interface + VuplexWebViewController, Input Action Asset, assembly definitions, project directory structure, spike acceptance criteria testing (NFR1, NFR2, NFR14 validated during spike).
+**Additional Requirements covered:** Project initialization, platform configuration, package installation, GameStateManager + state classes, IWebViewController interface + SlideImageController, Input Action Asset, assembly definitions, project directory structure, spike acceptance criteria testing (NFR1, NFR2, NFR14 validated during spike).
 
 ### Epic 2: The Lobby Experience — Setup Your Stage
 User opens StageMind, stands in a warm conference room at a podium, reads clear instructions, enters their slide URL, and sees slides load on the laptop screen and projector. When something goes wrong (bad link, no internet, login wall), they get warm, human guidance and can recover without restarting. The app requires no account and retains no data.
-**FRs covered:** FR1, FR2, FR4, FR5, FR6, FR18, FR19, FR20, FR21, FR22, FR23
+**FRs covered:** FR1, FR2, FR4, FR18, FR19, FR20, FR21, FR22, FR23 *(FR5, FR6 deferred to post-MVP — no embedded browser in MVP)*
 **Additional Requirements covered:** Design system foundation (UX-DR1–3), all UI prefabs (UX-DR4–10), shared systems (UX-DR11–13), landing page composition (UX-DR14), lobby 3D environment (UX-DR21), podium and confidence monitor setup (UX-DR22), projector screen lobby state (UX-DR23), error state compositions (UX-DR18), URL validation (UX-DR28), copy voice (UX-DR27), room tone audio (UX-DR19 partial), ErrorHandler, stateless/cleanup enforcement.
 
 ### Epic 3: The Rehearsal Experience — Stand and Deliver
 User presses "Start Rehearsal" and 50 audience members appear instantly. They advance through their slides with the trigger, glance down at the confidence monitor, and can pause anytime via the menu button. The experience is fully immersive — no UI, no feedback, just the stage.
 **FRs covered:** FR7, FR8, FR9, FR10, FR11, FR12, FR13, FR14, FR15
-**Additional Requirements covered:** Audience system with GPU instancing and 2 LOD levels (UX-DR20), slide control via keyboard event dispatch (UX-DR31), scene transition fade-to-black, pause menu (UX-DR15), haptic feedback patterns (UX-DR24), audience ambient audio (UX-DR19 partial), "Last slide" StatusIndicator (UX-DR10), button hierarchy for pause menu (UX-DR30), input context switching per state.
+**Additional Requirements covered:** Audience system with GPU instancing and 2 LOD levels (UX-DR20), slide control via texture index swap (UX-DR31 adapted), scene transition fade-to-black, pause menu (UX-DR15), haptic feedback patterns (UX-DR24), audience ambient audio (UX-DR19 partial), "Last slide" StatusIndicator (UX-DR10), button hierarchy for pause menu (UX-DR30), input context switching per state.
 
 ### Epic 4: The Reinforcement Moment — Feel the Warmth
 After ending a session, the user experiences warm amber lighting, an affirming message, and a deliberate moment of stillness. Then they choose to rehearse again or finish for the day. Every completed run-through ends on a positive note.
@@ -185,9 +185,9 @@ The app is rock-solid for 30-minute sessions, works seated or standing, handles 
 
 ---
 
-## Epic 1: Project Foundation & WebView Viability Gate
+## Epic 1: Project Foundation & Slide Delivery Viability Gate
 
-The creator validates that the core technology is viable — a published Google Slides deck renders as a texture inside Unity on Quest 3 at 72fps with slide-advance via keyboard event dispatch. This is the go/no-go decision for the entire project. Includes Unity project initialization, core state machine backbone, WebView interface contract and Vuplex integration, and spike testing on Quest 3 hardware.
+The creator validates that the core technology is viable — published Google Slides images are fetched and displayed as textures inside Unity on Quest 3 at 72fps with slide-advance via texture swap. This is the go/no-go decision for the entire project. Includes Unity project initialization, core state machine backbone, slide delivery interface contract and image-fetching implementation, and spike testing on Quest 3 hardware. The `IWebViewController` abstraction is preserved for a future post-MVP browser upgrade path.
 
 ### Story 1.1: Unity Project Initialization & Platform Configuration
 
@@ -255,11 +255,11 @@ So that all StageMind systems can coordinate behavior through a single, testable
 **Then** GameStateManagerTests verify: correct initialization to LobbyLanding, valid transitions succeed with correct event dispatch, invalid transitions are rejected, all 5 state classes have tests for Enter() and Exit() behavior
 **And** MockStateAware is implemented in Tests/EditMode/Mocks/ for verifying event dispatch
 
-### Story 1.3: WebView Interface Contract & Vuplex Integration
+### Story 1.3: Slide Delivery Interface Contract & Image Fetch Implementation
 
 As a developer,
-I want a WebView abstraction that renders web content to a RenderTexture and supports programmatic keyboard event dispatch,
-So that the app can display slides from any web-based presentation tool without coupling to a specific WebView plugin.
+I want a slide delivery abstraction that fetches slide images and renders them to a RenderTexture with programmatic slide navigation,
+So that the app can display slides from Google Slides published links without coupling to a specific delivery mechanism, and the interface supports swapping in a browser-based implementation post-MVP.
 
 **Acceptance Criteria:**
 
@@ -274,26 +274,26 @@ So that the app can display slides from any web-based presentation tool without 
 **Then** it includes: NetworkFailure, LoginWallDetected, PageLoadTimeout, Unknown
 
 **Given** the interface and enum exist
-**When** VuplexWebViewController is implemented in Scripts/WebView/
-**Then** it wraps the Vuplex 3D WebView plugin behind the IWebViewController interface
-**And** a single WebView instance is initialized once and reused across lobby/rehearsal cycles
-**And** RenderTexture is created and assigned to the WebView for off-screen rendering
-**And** texture updates use a dirty-flag approach (re-render only on input or navigation, not per-frame)
+**When** SlideImageController is implemented in Scripts/WebView/
+**Then** it implements IWebViewController by fetching slide images from Google Slides published URLs via UnityWebRequest
+**And** LoadUrl() parses the Google Slides presentation ID, fetches all slide images as Texture2D objects, and fires OnLoadSuccess when complete
+**And** SendKeyEvent(RightArrow) increments the slide index and updates the RenderTexture via Graphics.Blit(); SendKeyEvent(LeftArrow) decrements
+**And** a shared RenderTexture is updated only when the slide index changes (not per-frame)
 
-**Given** the Vuplex wrapper is implemented
+**Given** the SlideImageController is implemented
 **When** Cleanup() is called
-**Then** all cookies, cache, and browsing data are cleared (enforcing NFR18)
+**Then** all cached Texture2D objects are destroyed and slide index is reset (enforcing NFR18)
 
-**Given** the Vuplex wrapper is implemented
-**When** a URL fails to load or the WebView crashes
-**Then** appropriate OnLoadError or OnCrash events fire with correct error types
-**And** crash recovery attempts re-initialization once; if second failure within 10 seconds, no further retry
+**Given** the SlideImageController is implemented
+**When** a URL fails to load (HTTP error, DNS failure, or timeout)
+**Then** appropriate OnLoadError events fire with correct error types (NetworkFailure for HTTP errors, PageLoadTimeout for timeout)
+**And** if the fetched response is HTML instead of image data (non-published URL), OnLoadError fires with LoginWallDetected
 
-**Given** the WebView integration is complete
+**Given** the slide delivery integration is complete
 **When** UrlValidator is implemented in Scripts/WebView/
 **Then** it auto-prepends https:// if no protocol is present, rejects non-HTTP protocols (javascript:, file:, ftp:, data:), and rejects strings with no dot after the domain
 
-**Given** all WebView code is written
+**Given** all slide delivery code is written
 **When** Edit Mode tests are run
 **Then** MockWebViewController in Tests/EditMode/Mocks/ verifies the interface contract
 **And** UrlValidatorTests cover: valid URLs pass, missing protocol gets https:// prepended, non-HTTP protocols are rejected, no-dot strings are rejected
@@ -326,34 +326,34 @@ So that slide advancement, navigation, and pause controls work correctly in each
 **Then** InputRouter routing logic is verified: actions dispatch to the correct state handler based on current GameStateType
 **And** input blocking during ReinforcementState is verified
 
-### Story 1.5: WebView Spike — Quest 3 Hardware Validation
+### Story 1.5: Slide Image Fetch Spike — Quest 3 Hardware Validation
 
 As a creator,
-I want to confirm that web-based slides render reliably in VR on Quest 3 hardware at acceptable performance levels,
+I want to confirm that slide images fetched from Google Slides render reliably as textures in VR on Quest 3 hardware at acceptable performance levels,
 So that I have confidence the product is technically viable before investing in further development.
 
 **Acceptance Criteria:**
 
-**Given** a Unity build with VuplexWebViewController and a test scene containing a quad with the WebView RenderTexture is deployed to Quest 3
+**Given** a Unity build with SlideImageController and a test scene containing a quad with slide images rendered to a RenderTexture is deployed to Quest 3
 **When** a published Google Slides deck of 30+ slides is loaded via LoadUrl()
-**Then** the slides render as a texture on the quad without layout corruption or missing content
+**Then** all slide images are fetched and the first slide renders as a texture on the quad without corruption or missing content
 
-**Given** the slides are loaded and rendering
-**When** SendKeyEvent(RightArrow) is called to advance slides
-**Then** the perceived latency from key dispatch to visual update on the RenderTexture is less than 200ms
+**Given** the slides are loaded
+**When** SendKeyEvent(RightArrow) is called to advance the slide index and swap the displayed texture
+**Then** the perceived latency from key dispatch to visual update on the RenderTexture is less than 50ms (texture swap)
 
-**Given** the WebView is active and rendering slides
+**Given** slide textures are loaded and displayed
 **When** frame rate is measured via Unity Profiler or OVR Metrics Tool
-**Then** sustained frame rate remains at or above 72fps with no frame drops below 72fps during slide rendering or advancement
+**Then** sustained frame rate remains at or above 72fps with no frame drops below 72fps during slide display or advancement
 
 **Given** the spike test scene is running
-**When** published presentation URLs from Canva and PowerPoint Online are loaded
-**Then** both render without layout corruption and respond to arrow key events for slide navigation
+**When** Google Slides published URLs with various deck sizes (10, 30, 60 slides) are tested
+**Then** all decks fetch reliably and display without missing slides. Canva and PowerPoint Online deferred to post-MVP.
 
 **Given** the spike scene is running continuously
 **When** a 30-minute session is completed with periodic slide advancement
-**Then** no crashes, freezes, or WebView hang events occur
-**And** memory usage remains stable (no growth pattern indicating leaks)
+**Then** no crashes or freezes occur
+**And** memory usage remains stable (no growth pattern indicating leaks from cached textures)
 
 **Given** QR code scanning feasibility is being evaluated
 **When** Quest 3 passthrough cameras are activated and a QR code is displayed at arm's length (~0.5m)
@@ -361,7 +361,7 @@ So that I have confidence the product is technically viable before investing in 
 
 **Given** all spike criteria have been tested
 **When** results are compiled
-**Then** a go/no-go decision is documented: pass on all 5 WebView criteria → proceed to Phase 1; fail on any criterion → project pauses for alternative research
+**Then** a go/no-go decision is documented: pass on all 5 slide fetch criteria → proceed to Phase 1; fail on any criterion → evaluate alternative export mechanisms (Google Slides API, server-side rendering)
 
 ---
 
@@ -509,7 +509,7 @@ So that I can load my presentation and start rehearsing within minutes.
 **Given** a URL is entered in the input field
 **When** the user presses "Go" or the keyboard Done/Enter key
 **Then** UrlValidator checks the input (auto-prepends https:// if needed, rejects non-HTTP protocols and no-dot strings)
-**And** if validation passes, LoadingIndicator appears and WebView.LoadUrl() is called
+**And** if validation passes, LoadingIndicator appears and SlideImageController.LoadUrl() is called to fetch slide images
 **And** if validation fails, an inline error message appears: "That doesn't look like a link. Try pasting the full URL from your browser."
 
 **Given** the landing page is displayed
@@ -519,7 +519,7 @@ So that I can load my presentation and start rehearsing within minutes.
 **Given** the URL input and landing page are functional
 **When** the experience is tested end-to-end
 **Then** all copy voice follows "supportive friend" tone — contractions, sentence case, no technical terms visible to the user ("link" not "URL" in user-facing text)
-**And** FR1, FR2, FR5, FR18 are satisfied
+**And** FR1, FR2, FR18 are satisfied *(FR5 deferred — no embedded browser interaction in MVP)*
 
 ### Story 2.6: Slide Preview & Lobby-to-Loaded Transition
 
@@ -529,26 +529,22 @@ So that I can verify my presentation looks correct before starting rehearsal.
 
 **Acceptance Criteria:**
 
-**Given** a URL has been submitted and WebView.LoadUrl() is in progress
-**When** the WebView reports OnLoadSuccess
-**Then** slides appear on the laptop screen (WebView renders to RenderTexture mapped to laptop Canvas)
+**Given** a URL has been submitted and SlideImageController.LoadUrl() is fetching slide images
+**When** the controller reports OnLoadSuccess
+**Then** the first slide image appears on the laptop screen (Texture2D rendered to RenderTexture mapped to laptop Canvas)
 **And** the projector screen material swaps from the static StageMind wordmark texture to the shared RenderTexture, now mirroring the laptop content at larger scale
 **And** the LoadingIndicator fades out via UIAnimator
+**And** a slide counter ("1 / N") is displayed on the laptop screen
 
 **Given** slides are loaded on the laptop screen
 **When** the user interacts with the laptop via controller pointing
-**Then** they can click, scroll, and navigate within the embedded browser on the laptop surface (interactive)
-**And** the projector screen mirrors the same content passively (non-interactive — no controller input received)
-
-**Given** slides are loaded
-**When** browser navigation is needed
-**Then** the user can navigate back, forward, and refresh using browser controls provided by the WebView plugin (or custom if Config B from spike)
-**And** each navigation action completes within 1 second under normal network conditions (NFR16)
+**Then** they can tap left/right arrows on the laptop UI to preview different slides
+**And** the projector screen mirrors the same slide passively (shared RenderTexture updates via Graphics.Blit)
 
 **Given** slides are successfully loaded
 **When** the lobby state transitions to LobbySlidesLoaded
 **Then** the "Start Rehearsal" PrimaryButton changes from disabled to enabled (amber fill, interactive)
-**And** FR4, FR6 are satisfied
+**And** FR4 is satisfied *(FR6 deferred — no embedded browser navigation in MVP)*
 
 **Given** the user is in LobbySlidesLoaded state
 **When** they enter a new URL in the TextInputField
@@ -568,28 +564,27 @@ So that I can fix the issue and get back to rehearsing without frustration or co
 **And** ErrorHandler renders the error as a Card composition (terracotta accent) on the laptop screen with warm, human copy
 
 **Given** a URL fails to load (HTTP 4xx/5xx, DNS failure, or timeout after 15 seconds)
-**When** WebView reports OnLoadError with NetworkFailure
+**When** SlideImageController reports OnLoadError with NetworkFailure
 **Then** an error Card appears on the laptop: "Hmm, that link didn't load." with guidance "Make sure your slides are shared as a public link."
 **And** the entered URL persists in the input field for editing
 **And** FR19 is satisfied
 
-**Given** a loaded page redirects to a login domain (e.g., user submits docs.google.com but lands on accounts.google.com)
-**When** WebView reports OnLoadError with LoginWallDetected
-**Then** an error Card appears: "Looks like this page needs a login. Try sharing your slides as a public link instead." with how-to steps visible
+**Given** the fetched response is HTML instead of image data (non-published / private URL)
+**When** SlideImageController reports OnLoadError with LoginWallDetected
+**Then** an error Card appears: "Looks like these slides aren't published yet. Try sharing your slides as a public link instead." with how-to steps visible
 
 **Given** the device has no internet connection
-**When** Application.internetReachability returns NotReachable before a WebView load attempt
+**When** Application.internetReachability returns NotReachable before a slide fetch attempt
 **Then** an error Card appears: "We're offline right now. You'll need internet to load your slides." with a "Try Again" PrimaryButton
 **And** FR20 is satisfied
 
-**Given** the WebView crashes or becomes unresponsive
-**When** WebView reports OnCrash
-**Then** a reload is attempted once automatically
-**And** if reload also fails within 10 seconds, an error Card appears: "The browser isn't cooperating. Try closing and reopening StageMind." with no further retry button (dead-end directing to app restart)
+**Given** the slide fetch encounters repeated failures
+**When** a retry is attempted once automatically and also fails within 10 seconds
+**Then** an error Card appears: "Something went wrong loading your slides. Try closing and reopening StageMind." with no further retry button (dead-end directing to app restart)
 
 **Given** any error is displayed
 **When** the user fixes the issue and retries
-**Then** recovery always loops back to URL input — no dead ends (except WebView double-crash), no app restart required
+**Then** recovery always loops back to URL input — no dead ends (except double-failure), no app restart required
 
 **Given** the app is running
 **When** no user account, login, or registration is required at any point
@@ -597,8 +592,8 @@ So that I can fix the issue and get back to rehearsing without frustration or co
 **And** no authentication infrastructure exists in the codebase
 
 **Given** the app is closed or a new session begins
-**When** WebView.Cleanup() is called on app exit (OnApplicationQuit)
-**Then** all cookies, cache, browsing history, and session data are cleared
+**When** SlideImageController.Cleanup() is called on app exit (OnApplicationQuit)
+**Then** all cached slide textures are destroyed and slide index is reset
 **And** no user-specific data persists between sessions (no PlayerPrefs, no local files, no cached URLs)
 **And** FR22, FR23 are satisfied — multiple users on the same device see no trace of previous sessions
 
@@ -688,26 +683,26 @@ So that I can run through my talk naturally — just like clicking a physical pr
 
 **Given** the user is in Rehearsal state with slides displayed
 **When** the user pulls the right trigger
-**Then** InputRouter dispatches to RehearsalState which calls WebView.SendKeyEvent(RightArrow)
-**And** the slide advances on both the projector screen and confidence monitor (shared RenderTexture updates via dirty flag)
-**And** perceived latency from trigger pull to visual update is less than 200ms (NFR2)
+**Then** InputRouter dispatches to RehearsalState which calls SlideImageController.SendKeyEvent(RightArrow), incrementing the slide index
+**And** the next slide texture is blitted to the shared RenderTexture, updating both projector screen and confidence monitor
+**And** perceived latency from trigger pull to visual update is less than 50ms (texture swap — NFR2)
 **And** a subtle haptic click fires on the right controller
 
 **Given** the user is in Rehearsal state
 **When** the user presses the right B button
-**Then** WebView.SendKeyEvent(LeftArrow) is dispatched
-**And** the slide goes back to the previous one on both screens
+**Then** SlideImageController.SendKeyEvent(LeftArrow) is dispatched, decrementing the slide index
+**And** the previous slide texture is blitted to the shared RenderTexture, updating both screens
 **And** a subtle haptic click fires
 
 **Given** the user is on the last slide
 **When** the user pulls the right trigger
-**Then** nothing happens — no slide change, no error
+**Then** nothing happens — no slide change, no error (slide index stays at max)
 **And** a "Last slide" StatusIndicator appears at the bottom of the confidence monitor (laptop screen), fading in (~0.3s), holding (~2s), and fading out (~0.5s) via UIAnimator
 **And** no haptic fires (non-event)
 
 **Given** the user is on the first slide
 **When** the user presses the right B button
-**Then** nothing happens — silent non-event, no haptic, no indicator
+**Then** nothing happens — silent non-event, no haptic, no indicator (slide index stays at 0)
 
 **Given** the user is actively rehearsing
 **When** no controller input occurs

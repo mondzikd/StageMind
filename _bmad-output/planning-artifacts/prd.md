@@ -21,7 +21,7 @@ classification:
 
 ## Executive Summary
 
-StageMind is a VR presentation rehearsal simulator for Meta Quest that lets occasional speakers practice their talks on a virtual stage with an audience and their own slides. Built with Unity + OpenXR, the app embeds a virtual browser on the stage screen so users load slides directly from Google Slides, Canva, or any web-based tool — no uploads, no format conversion, no backend. The target user speaks publicly once or twice a year at meetups, company events, or community conferences and has no realistic way to simulate the spatial pressure of standing on a real stage. StageMind solves this by providing the experience itself: stand at the podium, see the audience, advance your slides, and run through your talk. Sold as a one-time purchase with no accounts or subscriptions, the app is built by a solo creator using AI-assisted development and targets personal utility first, with commercial viability as a secondary outcome.
+StageMind is a VR presentation rehearsal simulator for Meta Quest that lets occasional speakers practice their talks on a virtual stage with an audience and their own slides. Built with Unity + OpenXR, the app fetches slides from a published Google Slides link and displays them on the stage screen — no uploads, no format conversion, no backend. Post-MVP, support for additional slide platforms (Canva, PowerPoint Online) and an embedded browser experience are planned via a free open-source WebView integration. The target user speaks publicly once or twice a year at meetups, company events, or community conferences and has no realistic way to simulate the spatial pressure of standing on a real stage. StageMind solves this by providing the experience itself: stand at the podium, see the audience, advance your slides, and run through your talk. Sold as a one-time purchase with no accounts or subscriptions, the app is built by a solo creator using AI-assisted development and targets personal utility first, with commercial viability as a secondary outcome.
 
 ### What Makes This Special
 
@@ -184,16 +184,18 @@ StageMind is a standalone VR application built with Unity + OpenXR, distributed 
 
 ### Implementation Considerations
 
-- **WebView Integration (Critical Risk):** The highest-risk architectural decision. Unity on Quest requires a WebView solution that renders web content as a texture in the 3D scene with controller input mapping for browser interaction. **Architectural spike required early** evaluating: Vuplex, custom Android WebView bridge, and Chromium Embedded Framework (CEF) via Unity plugin. Spike must test with a real 30-slide Google Slides deck published to web, not simple HTML.
+- **Slide Image Fetching (MVP Approach):** The MVP skips an embedded browser entirely. Users provide a published Google Slides link, and the app fetches individual slide images via Google Slides' public export endpoints using Unity's `UnityWebRequest`. Each slide becomes a `Texture2D` displayed on the projector screen and confidence monitor. Slide advancement swaps textures — trivially fast and stable. This approach eliminates the highest-risk architectural dependency (WebView rendering on mobile VR GPU) and reduces MVP cost to zero.
 
-- **WebView Spike Acceptance Criteria:**
-  1. Renders a published Google Slides deck (30+ slides) as a texture in a Unity scene on Quest 3
-  2. Slide advance via controller input with < 200ms perceived latency
-  3. Maintains 72fps while WebView is active and rendering
-  4. Handles at least Google Slides, Canva, and PowerPoint Online published URLs
-  5. No memory leaks during a 30-minute continuous session
+- **Slide Fetch Spike Acceptance Criteria:**
+  1. Fetches all slides from a published Google Slides deck (30+ slides) as individual images on Quest 3
+  2. Slide advance via controller input with < 50ms perceived latency (texture swap)
+  3. Maintains 72fps while slide textures are loaded and displayed
+  4. Handles published Google Slides URLs reliably (Canva and PowerPoint Online deferred to post-MVP)
+  5. No memory leaks during a 30-minute continuous session with periodic slide navigation
 
-- **Go/No-Go Decision Point:** If no WebView solution meets all five acceptance criteria, the product approach requires reconsideration. This is a product-level decision, not a "keep iterating" situation. PDF fallback is not acceptable — an alternative must preserve the frictionless "paste a URL" experience.
+- **Go/No-Go Decision Point:** If slide image fetching from Google Slides published URLs does not work reliably on Quest 3, alternative export mechanisms (e.g., Google Slides API image export, server-side rendering) are evaluated. The bar is lower than the original WebView approach — HTTP image fetching is well-understood technology.
+
+- **Post-MVP Browser Upgrade Path:** The `IWebViewController` interface abstraction is preserved in the codebase. A free open-source WebView library ([SimpleUnity3DWebView](https://github.com/t-34400/SimpleUnity3DWebView), MIT license) has been identified as a potential Vuplex replacement. A post-MVP spike can evaluate this library for full embedded browser support, unlocking Canva, PowerPoint Online, and a richer lobby browsing experience.
 
 - **Scene Transitions:** Lobby-to-stage transition must use fade-to-black or cross-fade. Hard cuts cause VR discomfort. Under 3 seconds, no frame drops below 72fps.
 
@@ -224,7 +226,7 @@ StageMind is a standalone VR application built with Unity + OpenXR, distributed 
 | 1 | Lobby with landing page and embedded browser | Entry point; slide loading instructions prevent friction |
 | 2 | VR keyboard URL input | Baseline method to enter slide URLs |
 | 3 | Stage environment with 50 static audience | Core spatial pressure simulation |
-| 4 | Projector screen rendering slides from WebView | The "bring your own slides" promise |
+| 4 | Projector screen rendering slides from fetched images | The "bring your own slides" promise — MVP uses Google Slides published link image export |
 | 5 | Slide advance/back via VR controller | Essential rehearsal interaction |
 | 6 | Post-session positive reinforcement | Positive association — core differentiator |
 | 7 | Lobby-to-stage fade transition | VR comfort requirement (< 3s, no frame drops) |
@@ -297,8 +299,8 @@ The WebView spike is the project's go/no-go decision point. Must be completed an
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| WebView doesn't work reliably on Quest 3 | **Critical — project killer** | Phase 0 spike before any other investment. If fail, pause project and research alternatives. |
-| 50 audience members + WebView exceeds Quest 3 GPU budget | High | Profile early; reduce audience count or LOD if needed. 72fps is non-negotiable. |
+| Google Slides image export URLs change or become unreliable | **Medium** | Published Google Slides decks expose slide images via well-known public endpoints. If Google changes the export format, the `SlideImageController` is the only component that needs updating. The `IWebViewController` interface abstraction isolates the rest of the app. A post-MVP browser integration (via free open-source WebView library) provides an alternative slide delivery path. |
+| 50 audience members + slide textures exceed Quest 3 GPU budget | Low | Slide textures are static images — dramatically lower GPU cost than a live WebView. Profile early; reduce audience count or LOD if needed. 72fps is non-negotiable. |
 | Quest Store review rejects WebView-heavy app | Medium | Frame WebView as slide rendering tool, not primary UI. Prepare clear justification for reviewers. |
 | Scene transition causes frame drops or discomfort | Low | Standard VR pattern (fade-to-black); test early in development. |
 
@@ -326,8 +328,8 @@ The WebView spike is the project's go/no-go decision point. Must be completed an
 - **FR2:** User can enter a presentation URL using text input in the lobby
 - **FR3:** User can scan a QR code containing a presentation URL to load slides *(conditional MVP — contingent on feasibility spike; UX must accommodate whether or not this ships)*
 - **FR4:** User can view their presentation slides rendered in the lobby before entering the stage
-- **FR5:** User can interact with the embedded browser panel using VR controller-based input (pointing, clicking, scrolling, text entry)
-- **FR6:** User can navigate the embedded browser (back, forward, refresh, URL entry) to reach their published presentation
+- **FR5:** ~~User can interact with the embedded browser panel using VR controller-based input (pointing, clicking, scrolling, text entry)~~ *Deferred to post-MVP — no embedded browser in MVP. Slides are fetched as images from the published URL.*
+- **FR6:** ~~User can navigate the embedded browser (back, forward, refresh, URL entry) to reach their published presentation~~ *Deferred to post-MVP — no browser navigation in MVP. User enters URL directly and slides load automatically.*
 - **FR7:** User can initiate the transition from lobby to stage when ready to rehearse
 
 ### Stage & Spatial Experience
@@ -387,9 +389,9 @@ The WebView spike is the project's go/no-go decision point. Must be completed an
 
 ### Integration
 
-- **NFR14:** Embedded browser reliably renders published/view-only presentation URLs from Google Slides, Canva, and PowerPoint Online without layout corruption or missing content
-- **NFR15:** VR controller input (pointing, clicking, scrolling) maps correctly to browser interaction without input lag or missed clicks
-- **NFR16:** Embedded browser supports standard web navigation: URL entry, back, forward, and refresh — each action completes within 1 second under normal network conditions
+- **NFR14:** Slide image fetcher reliably processes published Google Slides URLs, extracting and displaying all slides without missing or corrupted images. Canva and PowerPoint Online support deferred to post-MVP.
+- **NFR15:** ~~VR controller input (pointing, clicking, scrolling) maps correctly to browser interaction without input lag or missed clicks~~ *Deferred to post-MVP — no embedded browser interaction in MVP.*
+- **NFR16:** ~~Embedded browser supports standard web navigation: URL entry, back, forward, and refresh — each action completes within 1 second under normal network conditions~~ *Deferred to post-MVP — no browser navigation in MVP.*
 
 ### Privacy & Data
 

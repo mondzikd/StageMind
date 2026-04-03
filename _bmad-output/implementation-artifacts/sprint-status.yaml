@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-31
-last_updated: 2026-04-02  # updated by correct-course workflow
+last_updated: 2026-04-03
 project: BMAD
 project_key: NOKEY
 tracking_system: file-system
@@ -46,7 +46,7 @@ development_status:
   epic-1: in-progress
   1-1-unity-project-initialization-and-platform-configuration: done
   1-2-core-state-machine-and-game-state-manager: done
-  1-3-slide-delivery-interface-contract-and-image-fetch-implementation: in-progress
+  1-3-slide-delivery-interface-contract-and-image-fetch-implementation: review
   1-4-input-system-foundation: backlog
   1-5-slide-image-fetch-spike-quest-3-hardware-validation: backlog
   epic-1-retrospective: optional

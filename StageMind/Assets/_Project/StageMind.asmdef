@@ -1,0 +1,13 @@
+{
+    "name": "StageMind",
+    "rootNamespace": "StageMind",
+    "references": [
+        "Unity.TextMeshPro",
+        "Unity.InputSystem",
+        "Unity.XR.OpenXR"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "autoReferenced": true
+}

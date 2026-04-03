@@ -1,0 +1,170 @@
+{
+    "name": "StageMindActions",
+    "maps": [
+        {
+            "name": "Gameplay",
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "actions": [
+                {
+                    "name": "AdvanceSlide",
+                    "type": "Button",
+                    "id": "f1a2b3c4-d5e6-7890-abcd-111111111111",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "PreviousSlide",
+                    "type": "Button",
+                    "id": "f1a2b3c4-d5e6-7890-abcd-222222222222",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "PauseMenu",
+                    "type": "Button",
+                    "id": "f1a2b3c4-d5e6-7890-abcd-333333333333",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "b1a2b3c4-d5e6-7890-abcd-111111111111",
+                    "path": "<XRController>{RightHand}/trigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "AdvanceSlide",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b1a2b3c4-d5e6-7890-abcd-222222222222",
+                    "path": "<XRController>{RightHand}/secondaryButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PreviousSlide",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b1a2b3c4-d5e6-7890-abcd-333333333333",
+                    "path": "<XRController>{LeftHand}/menu",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PauseMenu",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        },
+        {
+            "name": "UI",
+            "id": "a2b3c4d5-e6f7-8901-bcde-ef2345678901",
+            "actions": [
+                {
+                    "name": "UIPoint",
+                    "type": "Value",
+                    "id": "f2a3b4c5-d6e7-8901-bcde-111111111111",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "UIClick",
+                    "type": "Button",
+                    "id": "f2a3b4c5-d6e7-8901-bcde-222222222222",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "b2a3b4c5-d6e7-8901-bcde-111111111111",
+                    "path": "<XRController>{RightHand}/pointerPosition",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "UIPoint",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b2a3b4c5-d6e7-8901-bcde-222222222222",
+                    "path": "<XRController>{RightHand}/trigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "UIClick",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        },
+        {
+            "name": "Haptics",
+            "id": "a3b4c5d6-e7f8-9012-cdef-ef3456789012",
+            "actions": [
+                {
+                    "name": "HapticRight",
+                    "type": "PassThrough",
+                    "id": "f3a4b5c6-d7e8-9012-cdef-111111111111",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "HapticLeft",
+                    "type": "PassThrough",
+                    "id": "f3a4b5c6-d7e8-9012-cdef-222222222222",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "b3a4b5c6-d7e8-9012-cdef-111111111111",
+                    "path": "<XRController>{RightHand}/{Haptic}",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "HapticRight",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b3a4b5c6-d7e8-9012-cdef-222222222222",
+                    "path": "<XRController>{LeftHand}/{Haptic}",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "HapticLeft",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

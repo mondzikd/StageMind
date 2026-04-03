@@ -109,5 +109,10 @@ namespace StageMind
         {
             _currentState?.HandleInput(actionType);
         }
+
+        public bool TryHandleInputAction(InputActionType actionType)
+        {
+            return _currentState?.HandleInput(actionType) ?? false;
+        }
     }
 }

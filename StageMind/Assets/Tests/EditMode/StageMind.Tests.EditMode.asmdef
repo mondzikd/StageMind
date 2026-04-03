@@ -3,6 +3,7 @@
     "rootNamespace": "StageMind.Tests.EditMode",
     "references": [
         "StageMind",
+        "Unity.InputSystem",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

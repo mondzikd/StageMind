@@ -5,6 +5,6 @@ namespace StageMind
         void Enter();
         void Exit();
         void Update();
-        void HandleInput(InputActionType actionType);
+        bool HandleInput(InputActionType actionType);
     }
 }

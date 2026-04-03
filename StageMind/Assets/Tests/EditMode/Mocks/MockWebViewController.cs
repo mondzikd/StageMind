@@ -9,12 +9,14 @@ namespace StageMind.Tests.EditMode.Mocks
         public event Action<string> OnLoadSuccess;
         public event Action<WebViewError> OnLoadError;
         public event Action OnCrash;
+        public event Action<KeyCode, bool> OnKeyEventResult;
 
         public bool IsLoading { get; set; }
         public bool IsReady { get; set; }
 
         public List<string> LoadedUrls { get; } = new();
         public List<KeyCode> SentKeyEvents { get; } = new();
+        public bool SendKeyEventResult { get; set; } = true;
         public int InitializeCallCount { get; private set; }
         public int CleanupCallCount { get; private set; }
 
@@ -26,7 +28,12 @@ namespace StageMind.Tests.EditMode.Mocks
         }
 
         public void LoadUrl(string url) { LoadedUrls.Add(url); IsLoading = true; }
-        public void SendKeyEvent(KeyCode key) => SentKeyEvents.Add(key);
+        public bool SendKeyEvent(KeyCode key)
+        {
+            SentKeyEvents.Add(key);
+            OnKeyEventResult?.Invoke(key, SendKeyEventResult);
+            return SendKeyEventResult;
+        }
         public void Cleanup()
         {
             CleanupCallCount++;

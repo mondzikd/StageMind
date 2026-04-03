@@ -7,12 +7,13 @@ namespace StageMind
     {
         void Initialize(RenderTexture targetTexture);
         void LoadUrl(string url);
-        void SendKeyEvent(KeyCode key);
+        bool SendKeyEvent(KeyCode key);
         void Cleanup();
 
         event Action<string> OnLoadSuccess;
         event Action<WebViewError> OnLoadError;
         event Action OnCrash;
+        event Action<KeyCode, bool> OnKeyEventResult;
 
         bool IsLoading { get; }
         bool IsReady { get; }

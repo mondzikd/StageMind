@@ -32,6 +32,7 @@ namespace StageMind
         public event Action<string> OnLoadSuccess;
         public event Action<WebViewError> OnLoadError;
         public event Action OnCrash;
+        public event Action<KeyCode, bool> OnKeyEventResult;
 
         public bool IsLoading => _isLoading;
         public bool IsReady => _isReady;
@@ -79,9 +80,13 @@ namespace StageMind
             _loadTimeoutCoroutine = StartCoroutine(LoadTimeoutCoroutine());
         }
 
-        public void SendKeyEvent(KeyCode key)
+        public bool SendKeyEvent(KeyCode key)
         {
-            if (!_isReady || _webView == null) return;
+            if (!_isReady || _webView == null)
+            {
+                OnKeyEventResult?.Invoke(key, false);
+                return false;
+            }
 
             string vuplexKey = key switch
             {
@@ -90,10 +95,16 @@ namespace StageMind
                 _ => null
             };
 
-            if (vuplexKey == null) return;
+            if (vuplexKey == null)
+            {
+                OnKeyEventResult?.Invoke(key, false);
+                return false;
+            }
 
             _webView.SendKey(vuplexKey);
             _isDirty = true;
+            OnKeyEventResult?.Invoke(key, true);
+            return true;
         }
 
         public void Cleanup()

@@ -47,7 +47,7 @@ development_status:
   1-1-unity-project-initialization-and-platform-configuration: done
   1-2-core-state-machine-and-game-state-manager: done
   1-3-webview-interface-contract-and-vuplex-integration: done
-  1-4-input-system-foundation: review
+  1-4-input-system-foundation: done
   1-5-slide-image-fetch-spike-quest-3-hardware-validation: backlog
   epic-1-retrospective: optional
 

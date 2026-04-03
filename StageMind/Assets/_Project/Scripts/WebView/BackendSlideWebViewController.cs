@@ -16,12 +16,16 @@ namespace StageMind
         private Coroutine _activeRequestCoroutine;
         private string _sessionId;
         private string _loadedPresentationUrl;
+        private string _currentImageUrl;
         private bool _isLoading;
         private bool _isReady;
 
         public event Action<string> OnLoadSuccess;
         public event Action<WebViewError> OnLoadError;
+#pragma warning disable CS0067
         public event Action OnCrash;
+#pragma warning restore CS0067
+        public event Action<KeyCode, bool> OnKeyEventResult;
 
         public bool IsLoading => _isLoading;
         public bool IsReady => _isReady;
@@ -57,11 +61,12 @@ namespace StageMind
             _activeRequestCoroutine = StartCoroutine(StartSessionAndLoadFirstSlide(normalizedUrl));
         }
 
-        public void SendKeyEvent(KeyCode key)
+        public bool SendKeyEvent(KeyCode key)
         {
             if (!EnsureReady() || string.IsNullOrEmpty(_sessionId) || _isLoading)
             {
-                return;
+                OnKeyEventResult?.Invoke(key, false);
+                return false;
             }
 
             string action = key switch
@@ -73,11 +78,13 @@ namespace StageMind
 
             if (string.IsNullOrEmpty(action))
             {
-                return;
+                OnKeyEventResult?.Invoke(key, false);
+                return false;
             }
 
             CancelActiveRequest();
-            _activeRequestCoroutine = StartCoroutine(NavigateAndLoadSlide(action));
+            _activeRequestCoroutine = StartCoroutine(NavigateAndLoadSlide(action, key));
+            return true;
         }
 
         public void Cleanup()
@@ -85,6 +92,7 @@ namespace StageMind
             CancelActiveRequest();
             _sessionId = null;
             _loadedPresentationUrl = null;
+            _currentImageUrl = null;
             _isLoading = false;
             _isReady = false;
         }
@@ -122,6 +130,7 @@ namespace StageMind
             }
 
             _sessionId = response.sessionId;
+            _currentImageUrl = response.imageUrl;
             yield return DownloadAndBlit(response.imageUrl);
 
             if (!_isLoading)
@@ -133,7 +142,7 @@ namespace StageMind
             OnLoadSuccess?.Invoke(_loadedPresentationUrl);
         }
 
-        private IEnumerator NavigateAndLoadSlide(string action)
+        private IEnumerator NavigateAndLoadSlide(string action, KeyCode requestedKey)
         {
             _isLoading = true;
 
@@ -147,6 +156,7 @@ namespace StageMind
             {
                 _isLoading = false;
                 OnLoadError?.Invoke(MapToWebViewError(request));
+                OnKeyEventResult?.Invoke(requestedKey, false);
                 yield break;
             }
 
@@ -155,18 +165,26 @@ namespace StageMind
             {
                 _isLoading = false;
                 OnLoadError?.Invoke(WebViewError.Unknown);
+                OnKeyEventResult?.Invoke(requestedKey, false);
                 yield break;
             }
 
-            yield return DownloadAndBlit(response.imageUrl);
+            bool changed = !string.Equals(_currentImageUrl, response.imageUrl, StringComparison.Ordinal);
+            if (changed)
+            {
+                _currentImageUrl = response.imageUrl;
+                yield return DownloadAndBlit(response.imageUrl);
+            }
 
             if (!_isLoading)
             {
+                OnKeyEventResult?.Invoke(requestedKey, false);
                 yield break;
             }
 
             _isLoading = false;
             OnLoadSuccess?.Invoke(_loadedPresentationUrl);
+            OnKeyEventResult?.Invoke(requestedKey, changed);
         }
 
         private IEnumerator DownloadAndBlit(string imageUrl)

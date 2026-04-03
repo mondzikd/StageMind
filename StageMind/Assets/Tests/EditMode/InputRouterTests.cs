@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using StageMind.Tests.EditMode.Mocks;
+using UnityEngine;
 
 namespace StageMind.Tests.EditMode
 {
@@ -47,12 +49,24 @@ namespace StageMind.Tests.EditMode
         [Test]
         public void HandleInputAction_InReinforcement_ActionsBlocked()
         {
-            Assert.AreEqual(GameStateType.Reinforcement, GameStateType.Reinforcement);
+            var (router, managerObject, routerObject) = CreateInitializedInputRouter();
 
-            NavigateTo(GameStateType.Reinforcement);
+            try
+            {
+                NavigateManagerTo(managerObject.GetComponent<GameStateManager>(), GameStateType.Reinforcement);
 
-            Assert.AreEqual(GameStateType.Reinforcement, _stateMachine.CurrentStateType,
-                "State machine should be in Reinforcement state for input blocking test");
+                router.OnStateEnter(GameStateType.Reinforcement);
+                var actions = ReadPrivateField<StageMindActions>(router, "_actions");
+
+                Assert.IsFalse(actions.Gameplay.AdvanceSlide.enabled);
+                Assert.IsFalse(actions.Gameplay.PreviousSlide.enabled);
+                Assert.IsFalse(actions.Gameplay.PauseMenu.enabled);
+            }
+            finally
+            {
+                Object.DestroyImmediate(routerObject);
+                Object.DestroyImmediate(managerObject);
+            }
         }
 
         [Test]
@@ -103,18 +117,63 @@ namespace StageMind.Tests.EditMode
         [Test]
         public void ShouldBlockInput_InReinforcementState_ReturnsTrue()
         {
-            NavigateTo(GameStateType.Reinforcement);
+            var (router, managerObject, routerObject) = CreateInitializedInputRouter();
 
-            Assert.AreEqual(GameStateType.Reinforcement, _stateMachine.CurrentStateType);
+            try
+            {
+                var manager = managerObject.GetComponent<GameStateManager>();
+                NavigateManagerTo(manager, GameStateType.Reinforcement);
+
+                bool shouldBlock = InvokeShouldBlockInput(router, InputActionType.AdvanceSlide);
+                Assert.IsTrue(shouldBlock);
+            }
+            finally
+            {
+                Object.DestroyImmediate(routerObject);
+                Object.DestroyImmediate(managerObject);
+            }
         }
 
         [Test]
         public void ShouldBlockInput_InRehearsalState_ReturnsFalse()
         {
-            NavigateTo(GameStateType.Rehearsal);
+            var (router, managerObject, routerObject) = CreateInitializedInputRouter();
 
-            Assert.AreEqual(GameStateType.Rehearsal, _stateMachine.CurrentStateType);
-            Assert.AreNotEqual(GameStateType.Reinforcement, _stateMachine.CurrentStateType);
+            try
+            {
+                var manager = managerObject.GetComponent<GameStateManager>();
+                NavigateManagerTo(manager, GameStateType.Rehearsal);
+
+                bool shouldBlock = InvokeShouldBlockInput(router, InputActionType.AdvanceSlide);
+                Assert.IsFalse(shouldBlock);
+            }
+            finally
+            {
+                Object.DestroyImmediate(routerObject);
+                Object.DestroyImmediate(managerObject);
+            }
+        }
+
+        [Test]
+        public void OnStateExit_Reinforcement_ReEnablesGameplayActions()
+        {
+            var (router, managerObject, routerObject) = CreateInitializedInputRouter();
+
+            try
+            {
+                router.OnStateEnter(GameStateType.Reinforcement);
+                router.OnStateExit(GameStateType.Reinforcement);
+
+                var actions = ReadPrivateField<StageMindActions>(router, "_actions");
+                Assert.IsTrue(actions.Gameplay.AdvanceSlide.enabled);
+                Assert.IsTrue(actions.Gameplay.PreviousSlide.enabled);
+                Assert.IsTrue(actions.Gameplay.PauseMenu.enabled);
+            }
+            finally
+            {
+                Object.DestroyImmediate(routerObject);
+                Object.DestroyImmediate(managerObject);
+            }
         }
 
         private void NavigateTo(GameStateType target)
@@ -142,6 +201,75 @@ namespace StageMind.Tests.EditMode
                     _stateMachine.TransitionTo(GameStateType.Reinforcement);
                     break;
             }
+        }
+
+        private static (InputRouter router, GameObject managerObject, GameObject routerObject) CreateInitializedInputRouter()
+        {
+            var managerObject = new GameObject("InputRouterTests_Manager");
+            managerObject.AddComponent<GameStateManager>();
+
+            var routerObject = new GameObject("InputRouterTests_Router");
+            var router = routerObject.AddComponent<InputRouter>();
+            SetPrivateField(router, "_gameStateManager", managerObject.GetComponent<GameStateManager>());
+
+            // Ensure private StageMindActions instance is created for action enable/disable assertions.
+            InvokePrivateMethod(router, "Awake");
+
+            return (router, managerObject, routerObject);
+        }
+
+        private static void NavigateManagerTo(GameStateManager manager, GameStateType target)
+        {
+            if (manager.CurrentStateType == target)
+            {
+                return;
+            }
+
+            switch (target)
+            {
+                case GameStateType.LobbySlidesLoaded:
+                    manager.TransitionTo(GameStateType.LobbySlidesLoaded);
+                    break;
+                case GameStateType.Rehearsal:
+                    manager.TransitionTo(GameStateType.LobbySlidesLoaded);
+                    manager.TransitionTo(GameStateType.Rehearsal);
+                    break;
+                case GameStateType.Paused:
+                    manager.TransitionTo(GameStateType.LobbySlidesLoaded);
+                    manager.TransitionTo(GameStateType.Rehearsal);
+                    manager.TransitionTo(GameStateType.Paused);
+                    break;
+                case GameStateType.Reinforcement:
+                    manager.TransitionTo(GameStateType.LobbySlidesLoaded);
+                    manager.TransitionTo(GameStateType.Rehearsal);
+                    manager.TransitionTo(GameStateType.Paused);
+                    manager.TransitionTo(GameStateType.Reinforcement);
+                    break;
+            }
+        }
+
+        private static bool InvokeShouldBlockInput(InputRouter router, InputActionType actionType)
+        {
+            var method = typeof(InputRouter).GetMethod("ShouldBlockInput", BindingFlags.Instance | BindingFlags.NonPublic);
+            return (bool)method.Invoke(router, new object[] { actionType });
+        }
+
+        private static void InvokePrivateMethod(object instance, string methodName)
+        {
+            var method = instance.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            method?.Invoke(instance, null);
+        }
+
+        private static T ReadPrivateField<T>(object instance, string fieldName) where T : class
+        {
+            var field = instance.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            return field?.GetValue(instance) as T;
+        }
+
+        private static void SetPrivateField(object instance, string fieldName, object value)
+        {
+            var field = instance.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            field?.SetValue(instance, value);
         }
     }
 }

@@ -11,6 +11,10 @@ namespace StageMind.Tests.EditMode.Mocks
         public void Enter() => EnterCallCount++;
         public void Exit() => ExitCallCount++;
         public void Update() { }
-        public void HandleInput(InputActionType actionType) => ReceivedInputActions.Add(actionType);
+        public bool HandleInput(InputActionType actionType)
+        {
+            ReceivedInputActions.Add(actionType);
+            return true;
+        }
     }
 }

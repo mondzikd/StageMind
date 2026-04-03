@@ -23,6 +23,6 @@ namespace StageMind
 
         public void Update() { }
 
-        public void HandleInput(InputActionType actionType) { }
+        public bool HandleInput(InputActionType actionType) => false;
     }
 }

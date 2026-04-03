@@ -5,10 +5,12 @@ namespace StageMind
     public class RehearsalState : IGameState
     {
         private readonly GameStateManager _stateManager;
+        private readonly IWebViewController _webViewController;
 
-        public RehearsalState(GameStateManager stateManager)
+        public RehearsalState(GameStateManager stateManager, IWebViewController webViewController = null)
         {
             _stateManager = stateManager;
+            _webViewController = webViewController;
         }
 
         public void Enter()
@@ -23,6 +25,15 @@ namespace StageMind
 
         public void Update() { }
 
-        public void HandleInput(InputActionType actionType) { }
+        public bool HandleInput(InputActionType actionType)
+        {
+            return actionType switch
+            {
+                InputActionType.AdvanceSlide => _webViewController?.SendKeyEvent(KeyCode.RightArrow) ?? false,
+                InputActionType.PreviousSlide => _webViewController?.SendKeyEvent(KeyCode.LeftArrow) ?? false,
+                InputActionType.PauseMenu => true,
+                _ => false
+            };
+        }
     }
 }

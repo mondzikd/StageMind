@@ -15,12 +15,16 @@ namespace StageMind
         private Coroutine _activeLoadCoroutine;
         private string _loadedPresentationUrl;
         private int _currentSlideIndex;
+        private KeyCode _pendingKeyEvent = KeyCode.None;
         private bool _isLoading;
         private bool _isReady;
 
         public event Action<string> OnLoadSuccess;
         public event Action<WebViewError> OnLoadError;
+#pragma warning disable CS0067
         public event Action OnCrash;
+#pragma warning restore CS0067
+        public event Action<KeyCode, bool> OnKeyEventResult;
 
         public bool IsLoading => _isLoading;
         public bool IsReady => _isReady;
@@ -64,11 +68,12 @@ namespace StageMind
             StartLoadForCurrentSlide();
         }
 
-        public void SendKeyEvent(KeyCode key)
+        public bool SendKeyEvent(KeyCode key)
         {
             if (!EnsureReady() || _isLoading || _mockSlides == null || _mockSlides.Count == 0)
             {
-                return;
+                OnKeyEventResult?.Invoke(key, false);
+                return false;
             }
 
             int nextIndex = _currentSlideIndex;
@@ -83,16 +88,20 @@ namespace StageMind
             }
             else
             {
-                return;
+                OnKeyEventResult?.Invoke(key, false);
+                return false;
             }
 
             if (nextIndex == _currentSlideIndex)
             {
-                return;
+                OnKeyEventResult?.Invoke(key, false);
+                return false;
             }
 
             _currentSlideIndex = nextIndex;
+            _pendingKeyEvent = key;
             StartLoadForCurrentSlide();
+            return true;
         }
 
         public void Cleanup()
@@ -107,6 +116,7 @@ namespace StageMind
             _isReady = false;
             _loadedPresentationUrl = null;
             _currentSlideIndex = 0;
+            _pendingKeyEvent = KeyCode.None;
         }
 
         private void StartLoadForCurrentSlide()
@@ -131,6 +141,7 @@ namespace StageMind
             {
                 _isLoading = false;
                 OnLoadError?.Invoke(WebViewError.Unknown);
+                EmitPendingKeyResult(false);
                 yield break;
             }
 
@@ -139,12 +150,14 @@ namespace StageMind
             {
                 _isLoading = false;
                 OnLoadError?.Invoke(WebViewError.Unknown);
+                EmitPendingKeyResult(false);
                 yield break;
             }
 
             Graphics.Blit(slideTexture, _targetRenderTexture);
             _isLoading = false;
             OnLoadSuccess?.Invoke(_loadedPresentationUrl);
+            EmitPendingKeyResult(true);
         }
 
         private bool EnsureReady()
@@ -157,6 +170,17 @@ namespace StageMind
             Debug.LogError("[MockBackendSlideWebViewController] Controller is not initialized.");
             OnLoadError?.Invoke(WebViewError.Unknown);
             return false;
+        }
+
+        private void EmitPendingKeyResult(bool changed)
+        {
+            if (_pendingKeyEvent == KeyCode.None)
+            {
+                return;
+            }
+
+            OnKeyEventResult?.Invoke(_pendingKeyEvent, changed);
+            _pendingKeyEvent = KeyCode.None;
         }
 
     }

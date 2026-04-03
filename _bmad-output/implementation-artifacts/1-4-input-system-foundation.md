@@ -1,6 +1,6 @@
 # Story 1.4: Input System Foundation
 
-Status: review
+Status: done
 
 ## Story
 
@@ -89,6 +89,14 @@ So that slide advancement, navigation, and pause controls work correctly in each
   - [x] 7.5 Verify `StageMind` namespace used consistently
   - [x] 7.6 Verify `StageMind.asmdef` includes `Unity.InputSystem` and `Unity.XR.OpenXR` references
   - [x] 7.7 Verify existing 58 tests still pass with no regressions after `HandleInput` signature change
+
+### Review Follow-ups (AI)
+
+- [x] [AI-Review][Critical] Implement `ShouldBlockInput()` in `InputRouter` and apply it consistently in input callbacks or remove the completed claim and update tasks accordingly [StageMind/Assets/_Project/Scripts/Input/InputRouter.cs]
+- [x] [AI-Review][Critical] Replace placeholder reinforcement blocking tests with assertions that actually validate blocked behavior rather than only state checks [StageMind/Assets/Tests/EditMode/InputRouterTests.cs]
+- [x] [AI-Review][High] Implement AC #3 non-event haptic suppression via action-result feedback (`IWebViewController.SendKeyEvent()` and state-router bool propagation) so haptics fire only when actions are consumed [StageMind/Assets/_Project/Scripts/Input/InputRouter.cs]
+- [x] [AI-Review][High] Add AC #4 coverage that validates real `InputRouter` reinforcement blocking semantics (action disable/callback suppression), not only `StateMachine` delegation [StageMind/Assets/Tests/EditMode/InputRouterTests.cs]
+- [x] [AI-Review][Medium] Reconcile Dev Agent Record File List with repository evidence (workspace file list refreshed after review-driven refactor and test updates) [StageMind/Assets]
 
 ## Dev Notes
 
@@ -572,7 +580,7 @@ No debug issues encountered during implementation.
 - Added `HandleInputAction(InputActionType)` method to `StateMachine` (delegates to `_currentState.HandleInput()`) and `GameStateManager` (thin shell delegating to `_stateMachine`)
 - Created `InputRouter` MonoBehaviour implementing `IStateAware`: subscribes to Input System `.performed` callbacks, routes actions through `GameStateManager`, dispatches haptic via `HapticFeedback`, and disables all Gameplay actions during Reinforcement state
 - Input blocking during Reinforcement implemented at the Input System action level via `IStateAware.OnStateEnter/OnStateExit` — actions are disabled/enabled, preventing callbacks from firing
-- Haptic feedback fires unconditionally on action callbacks (non-event suppression deferred to Story 3.3 per Dev Notes)
+- Implemented action-result feedback loop: `IWebViewController.SendKeyEvent()` and state input handling now return `bool` consumed state so `InputRouter` suppresses haptics on non-events
 - Actions disposed in `OnDestroy()` (not `OnDisable()`) to survive enable/disable cycles
 - Added `Unity.XR.OpenXR` reference to `StageMind.asmdef`
 - Created `MockGameState` test mock recording `HandleInput` calls with action type tracking
@@ -583,6 +591,8 @@ No debug issues encountered during implementation.
 
 - 2026-04-03: Implemented Story 1.4 Input System Foundation — created input action asset, InputRouter, HapticFeedback, InputActionType enum; refactored HandleInput signature across all states and tests; added 8 new Edit Mode tests
 - 2026-04-03: Moved StageMind.asmdef from Assets/_Project/Scripts/ to Assets/_Project/ to cover InputActions/ directory — StageMindActions.cs was outside asmdef scope causing CS0246 compilation error
+- 2026-04-03: Code-review follow-up fixes — added `ShouldBlockInput` guards in `InputRouter`, replaced placeholder blocking tests with real assertions, and synced story/sprint status to in-progress during remediation
+- 2026-04-03: Implemented non-event haptic suppression via bool-returning action pipeline (`IWebViewController.SendKeyEvent` → `RehearsalState.HandleInput` → `StateMachine`/`GameStateManager` → `InputRouter` haptic gate), plus coverage updates in state/mocks tests
 
 ### File List
 
@@ -599,15 +609,21 @@ No debug issues encountered during implementation.
 - `Assets/_Project/Scripts/Core/IGameState.cs` — HandleInput() → HandleInput(InputActionType)
 - `Assets/_Project/Scripts/Core/StateMachine.cs` — added HandleInputAction(InputActionType)
 - `Assets/_Project/Scripts/Core/GameStateManager.cs` — added HandleInputAction(InputActionType)
+- `Assets/_Project/Scripts/Core/IWebViewController.cs` — `SendKeyEvent(KeyCode)` now returns `bool` consumed status
 - `Assets/_Project/Scripts/Core/States/LobbyLandingState.cs` — updated HandleInput signature
 - `Assets/_Project/Scripts/Core/States/LobbySlidesLoadedState.cs` — updated HandleInput signature
-- `Assets/_Project/Scripts/Core/States/RehearsalState.cs` — updated HandleInput signature
+- `Assets/_Project/Scripts/Core/States/RehearsalState.cs` — routes slide actions through `IWebViewController` and returns consumed status
 - `Assets/_Project/Scripts/Core/States/ReinforcementState.cs` — updated HandleInput signature
 - `Assets/_Project/Scripts/Core/States/PausedState.cs` — updated HandleInput signature
 - `Assets/_Project/StageMind.asmdef` — added Unity.XR.OpenXR reference; moved from Scripts/ to _Project/ to cover InputActions/ scope
+- `Assets/_Project/Scripts/WebView/BackendSlideWebViewController.cs` — `SendKeyEvent` returns consumed status for next/previous navigation
+- `Assets/_Project/Scripts/WebView/MockBackendSlideWebViewController.cs` — `SendKeyEvent` returns consumed status with boundary suppression
+- `Assets/_Project/Scripts/WebView/VuplexWebViewController.cs` — `SendKeyEvent` returns consumed status when key is accepted
 - `Assets/Tests/EditMode/LobbyLandingStateTests.cs` — updated HandleInput call
 - `Assets/Tests/EditMode/LobbySlidesLoadedStateTests.cs` — updated HandleInput call
 - `Assets/Tests/EditMode/RehearsalStateTests.cs` — updated HandleInput call
 - `Assets/Tests/EditMode/ReinforcementStateTests.cs` — updated HandleInput call
 - `Assets/Tests/EditMode/PausedStateTests.cs` — updated HandleInput call
 - `Assets/Tests/EditMode/GameStateManagerTests.cs` — updated TestState.HandleInput signature
+- `Assets/Tests/EditMode/InputRouterTests.cs` — added real reinforcement blocking and action re-enable assertions
+- `Assets/Tests/EditMode/Mocks/MockWebViewController.cs` — `SendKeyEvent` returns configurable consumed status

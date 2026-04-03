@@ -13,8 +13,11 @@ namespace StageMind
 
         public GameStateType CurrentStateType => EnsureStateMachineCreated().CurrentStateType;
 
+        [SerializeField] private MonoBehaviour _webViewControllerComponent;
+
         private StateMachine _stateMachine;
         private bool _isInitialized;
+        private IWebViewController _webViewController;
 
         private void Awake()
         {
@@ -71,6 +74,16 @@ namespace StageMind
             _stateMachine.HandleInputAction(actionType);
         }
 
+        public bool TryHandleInputAction(InputActionType actionType)
+        {
+            if (!_isInitialized)
+            {
+                Initialize();
+            }
+
+            return _stateMachine.TryHandleInputAction(actionType);
+        }
+
         private void Initialize()
         {
             if (_isInitialized)
@@ -79,6 +92,17 @@ namespace StageMind
             }
 
             _stateMachine = EnsureStateMachineCreated();
+            _webViewController = _webViewControllerComponent as IWebViewController;
+            if (_webViewControllerComponent != null && _webViewController == null)
+            {
+                Debug.LogError("[StageMind] Assigned WebView controller component does not implement IWebViewController.");
+            }
+
+            if (_webViewControllerComponent == null)
+            {
+                Debug.LogWarning("[StageMind] No WebView controller component assigned. Rehearsal slide input will be ignored.");
+            }
+
             _stateMachine.Initialize();
             _isInitialized = true;
         }
@@ -95,7 +119,7 @@ namespace StageMind
             {
                 GameStateType.LobbyLanding => new LobbyLandingState(this),
                 GameStateType.LobbySlidesLoaded => new LobbySlidesLoadedState(this),
-                GameStateType.Rehearsal => new RehearsalState(this),
+                GameStateType.Rehearsal => new RehearsalState(this, _webViewController),
                 GameStateType.Reinforcement => new ReinforcementState(this),
                 GameStateType.Paused => new PausedState(this, previousStateType),
                 _ => throw new ArgumentOutOfRangeException(nameof(stateType), stateType, null)

@@ -27,6 +27,6 @@ namespace StageMind
 
         public void Update() { }
 
-        public void HandleInput() { }
+        public void HandleInput(InputActionType actionType) { }
     }
 }

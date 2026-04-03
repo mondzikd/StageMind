@@ -104,5 +104,10 @@ namespace StageMind
 
             _stateAwareListeners.Remove(listener);
         }
+
+        public void HandleInputAction(InputActionType actionType)
+        {
+            _currentState?.HandleInput(actionType);
+        }
     }
 }

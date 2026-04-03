@@ -34,7 +34,7 @@ namespace StageMind.Tests.EditMode
         [Test]
         public void HandleInput_ExecutesWithoutException()
         {
-            Assert.DoesNotThrow(() => _state.HandleInput());
+            Assert.DoesNotThrow(() => _state.HandleInput(InputActionType.AdvanceSlide));
         }
 
         [Test]

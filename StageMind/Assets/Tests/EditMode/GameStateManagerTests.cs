@@ -273,7 +273,7 @@ namespace StageMind.Tests.EditMode
             public void Enter() => EnterCalled = true;
             public void Exit() => ExitCalled = true;
             public void Update() { }
-            public void HandleInput() { }
+            public void HandleInput(InputActionType actionType) { }
         }
     }
 }

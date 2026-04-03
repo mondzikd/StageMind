@@ -61,6 +61,16 @@ namespace StageMind
             _stateMachine.UnregisterStateAware(listener);
         }
 
+        public void HandleInputAction(InputActionType actionType)
+        {
+            if (!_isInitialized)
+            {
+                Initialize();
+            }
+
+            _stateMachine.HandleInputAction(actionType);
+        }
+
         private void Initialize()
         {
             if (_isInitialized)

@@ -1,6 +1,6 @@
 # Story 1.3: WebView Interface Contract & Vuplex Integration
 
-Status: review
+Status: done
 
 > Scope pivot (2026-04-02): Vuplex integration is currently replaced by a free `BackendSlideWebViewController` path that consumes backend-generated slide images from public links (starting with Google Slides). This preserves the `IWebViewController` contract while removing paid plugin dependency for MVP.
 
@@ -77,7 +77,7 @@ So that the app can display slides from any web-based presentation tool without 
   - [x] 4.1 Create `UrlValidator.cs` in `Scripts/WebView/` as a static utility class
   - [x] 4.2 Implement `ValidateAndNormalize(string input)` returning `(bool isValid, string normalizedUrl, string errorMessage)`
   - [x] 4.3 Auto-prepend `https://` if input has no protocol (no `://` present)
-  - [x] 4.4 Reject non-HTTP protocols (`javascript:`, `file:`, `ftp:`, `data:`) — silently prepend `https://` per UX-DR28
+  - [x] 4.4 Reject non-HTTP protocols (`javascript:`, `file:`, `ftp:`, `data:`)
   - [x] 4.5 Reject strings with no dot after the domain portion
   - [x] 4.6 Include configurable domain allowlist array (not enforced in MVP, but the array and check structure must exist for future Quest Store compliance)
 
@@ -510,6 +510,7 @@ Claude claude-4.6-opus-high-thinking (Cursor Agent)
 - 2026-04-02: Added `BackendSlideWebViewController` for free MVP path using backend-generated slide images and `IWebViewController` compatibility
 - 2026-04-02: Added `MockBackendSlideWebViewController` for local no-backend demo/testing with serialized mock slide textures and arrow-key navigation
 - 2026-04-03: Resolved remaining subtasks — 3.2 (Vuplex import) resolved by approved scope pivot removing Vuplex dependency; 6.13 (test execution) completed with full Unity Test Runner batch run: 58/58 tests passed (0 failures, 0 skipped), including 16 UrlValidatorTests. Story status → review.
+- 2026-04-03: Code review auto-fixes applied — `MockWebViewController` now tracks `IsReady`/`IsLoading` lifecycle on `Initialize()` and `Cleanup()`, `UrlValidator` now rejects blocked protocols (`javascript:`, `file:`, `ftp:`, `data:`) consistently, protocol rejection tests updated, and backend/mock backend controllers now emit `OnCrash` for unexpected runtime failures.
 
 ### Senior Developer Review (AI)
 
@@ -520,6 +521,12 @@ Claude claude-4.6-opus-high-thinking (Cursor Agent)
   - Added domain allowlist check structure (non-enforced for MVP) to satisfy future compliance hook requirement.
   - Corrected task completion markers for deferred Vuplex import and pending Unity Test Runner execution.
   - Story remains `in-progress` until manual import (`3.2`) and Unity Test Runner verification (`6.13`) are completed.
+- 2026-04-03: Automatic review fixes completed:
+  - Updated `MockWebViewController` to manage `IsReady` and `IsLoading` during initialize/cleanup lifecycle.
+  - Tightened URL validation behavior: blocked protocols are now rejected rather than normalized.
+  - Updated `UrlValidatorTests` to assert blocked protocol rejection for `javascript:`, `file:`, `ftp:`, and `data:`.
+  - Added unexpected-failure crash signaling (`OnCrash`) in `BackendSlideWebViewController` and `MockBackendSlideWebViewController`.
+  - Story set to `done` after HIGH/MEDIUM review issues were addressed.
 
 ### File List
 

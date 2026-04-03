@@ -18,10 +18,21 @@ namespace StageMind.Tests.EditMode.Mocks
         public int InitializeCallCount { get; private set; }
         public int CleanupCallCount { get; private set; }
 
-        public void Initialize(RenderTexture targetTexture) => InitializeCallCount++;
+        public void Initialize(RenderTexture targetTexture)
+        {
+            InitializeCallCount++;
+            IsReady = targetTexture != null;
+            IsLoading = false;
+        }
+
         public void LoadUrl(string url) { LoadedUrls.Add(url); IsLoading = true; }
         public void SendKeyEvent(KeyCode key) => SentKeyEvents.Add(key);
-        public void Cleanup() => CleanupCallCount++;
+        public void Cleanup()
+        {
+            CleanupCallCount++;
+            IsLoading = false;
+            IsReady = false;
+        }
 
         public void SimulateLoadSuccess(string url) { IsLoading = false; OnLoadSuccess?.Invoke(url); }
         public void SimulateLoadError(WebViewError error) { IsLoading = false; OnLoadError?.Invoke(error); }

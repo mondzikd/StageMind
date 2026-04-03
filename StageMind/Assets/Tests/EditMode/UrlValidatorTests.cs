@@ -38,43 +38,51 @@ namespace StageMind.Tests.EditMode
         [Test]
         public void ValidateAndNormalize_JavascriptProtocol_Rejected()
         {
-            var (isValid, _, _) = UrlValidator.ValidateAndNormalize("javascript:alert(1)");
+            var (isValid, normalizedUrl, errorMessage) = UrlValidator.ValidateAndNormalize("javascript:alert(1)");
 
             Assert.IsFalse(isValid);
+            Assert.IsNull(normalizedUrl);
+            Assert.IsNotNull(errorMessage);
         }
 
         [Test]
-        public void ValidateAndNormalize_JavascriptProtocol_WithDomain_PrependsHttps()
+        public void ValidateAndNormalize_JavascriptProtocol_WithDomain_Rejected()
         {
-            var (isValid, normalizedUrl, _) = UrlValidator.ValidateAndNormalize("javascript:slides.google.com");
+            var (isValid, normalizedUrl, errorMessage) = UrlValidator.ValidateAndNormalize("javascript:slides.google.com");
 
-            Assert.IsTrue(isValid);
-            Assert.AreEqual("https://slides.google.com", normalizedUrl);
+            Assert.IsFalse(isValid);
+            Assert.IsNull(normalizedUrl);
+            Assert.IsNotNull(errorMessage);
         }
 
         [Test]
         public void ValidateAndNormalize_FileProtocol_Rejected()
         {
-            var (isValid, _, _) = UrlValidator.ValidateAndNormalize("file:///etc/passwd");
+            var (isValid, normalizedUrl, errorMessage) = UrlValidator.ValidateAndNormalize("file:///etc/passwd");
 
             Assert.IsFalse(isValid);
+            Assert.IsNull(normalizedUrl);
+            Assert.IsNotNull(errorMessage);
         }
 
         [Test]
-        public void ValidateAndNormalize_FtpProtocol_StrippedAndPrependsHttps()
+        public void ValidateAndNormalize_FtpProtocol_Rejected()
         {
-            var (isValid, normalizedUrl, _) = UrlValidator.ValidateAndNormalize("ftp://example.com");
+            var (isValid, normalizedUrl, errorMessage) = UrlValidator.ValidateAndNormalize("ftp://example.com");
 
-            Assert.IsTrue(isValid);
-            Assert.AreEqual("https://example.com", normalizedUrl);
+            Assert.IsFalse(isValid);
+            Assert.IsNull(normalizedUrl);
+            Assert.IsNotNull(errorMessage);
         }
 
         [Test]
         public void ValidateAndNormalize_DataProtocol_Rejected()
         {
-            var (isValid, _, _) = UrlValidator.ValidateAndNormalize("data:text/html,<h1>hi</h1>");
+            var (isValid, normalizedUrl, errorMessage) = UrlValidator.ValidateAndNormalize("data:text/html,<h1>hi</h1>");
 
             Assert.IsFalse(isValid);
+            Assert.IsNull(normalizedUrl);
+            Assert.IsNotNull(errorMessage);
         }
 
         [Test]

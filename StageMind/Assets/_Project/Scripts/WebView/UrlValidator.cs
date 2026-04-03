@@ -20,8 +20,7 @@ namespace StageMind
             {
                 if (trimmed.StartsWith(protocol, StringComparison.OrdinalIgnoreCase))
                 {
-                    trimmed = trimmed.Substring(protocol.Length).TrimStart('/');
-                    break;
+                    return (false, null, "That doesn't look like a link. Try pasting the full URL from your browser.");
                 }
             }
 

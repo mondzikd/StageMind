@@ -1,22 +1,30 @@
 using System;
 using System.Collections;
-using System.Text;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Networking;
 
 namespace StageMind
 {
+    /// <summary>
+    /// Fetches slide images directly from Google Slides export URLs and renders them
+    /// to a RenderTexture. All slides are pre-loaded into memory on LoadUrl(), and
+    /// navigation via SendKeyEvent is an instant in-memory texture swap (GPU blit only).
+    /// </summary>
     public class BackendSlideWebViewController : MonoBehaviour, IWebViewController
     {
-        [Header("Backend API")]
-        [SerializeField] private string _backendBaseUrl = "http://localhost:8080";
-        [SerializeField] private int _requestTimeoutSeconds = 15;
+        [Header("Configuration")]
+        [SerializeField] private int _requestTimeoutSeconds = 30;
+        [SerializeField] private int _maxSlides = 100;
 
         private RenderTexture _targetRenderTexture;
         private Coroutine _activeRequestCoroutine;
-        private string _sessionId;
         private string _loadedPresentationUrl;
-        private string _currentImageUrl;
+        private string _presentationId;
+        private readonly List<Texture2D> _slideTextures = new();
+        private readonly List<string> _slidePageIds = new();
+        private int _currentSlideIndex;
         private bool _isLoading;
         private bool _isReady;
 
@@ -29,6 +37,8 @@ namespace StageMind
 
         public bool IsLoading => _isLoading;
         public bool IsReady => _isReady;
+        public int SlideCount => _slideTextures.Count;
+        public int CurrentSlideIndex => _currentSlideIndex;
 
         public void Initialize(RenderTexture targetTexture)
         {
@@ -38,7 +48,7 @@ namespace StageMind
 
             if (!_isReady)
             {
-                Debug.LogError("[BackendSlideWebViewController] Initialize failed: target RenderTexture is null.");
+                Debug.LogError("[SlideController] Initialize failed: target RenderTexture is null.");
                 OnLoadError?.Invoke(WebViewError.Unknown);
             }
         }
@@ -57,159 +67,343 @@ namespace StageMind
                 return;
             }
 
+            _presentationId = ExtractPresentationId(normalizedUrl);
+            if (string.IsNullOrEmpty(_presentationId))
+            {
+                Debug.LogError($"[SlideController] Could not extract presentation ID from: {normalizedUrl}");
+                OnLoadError?.Invoke(WebViewError.NetworkFailure);
+                return;
+            }
+
+            Debug.Log($"[SlideController] Extracted presentation ID: {_presentationId}");
+
             CancelActiveRequest();
-            _activeRequestCoroutine = StartCoroutine(StartSessionAndLoadFirstSlide(normalizedUrl));
+            _activeRequestCoroutine = StartCoroutine(DiscoverAndLoadAllSlides(normalizedUrl));
         }
 
         public bool SendKeyEvent(KeyCode key)
         {
-            if (!EnsureReady() || string.IsNullOrEmpty(_sessionId) || _isLoading)
+            if (!EnsureReady() || _isLoading || _slideTextures.Count == 0)
             {
                 OnKeyEventResult?.Invoke(key, false);
                 return false;
             }
 
-            string action = key switch
-            {
-                KeyCode.RightArrow => "next",
-                KeyCode.LeftArrow => "previous",
-                _ => null
-            };
+            int nextIndex = _currentSlideIndex;
 
-            if (string.IsNullOrEmpty(action))
+            if (key == KeyCode.RightArrow)
+            {
+                nextIndex = Mathf.Min(_currentSlideIndex + 1, _slideTextures.Count - 1);
+            }
+            else if (key == KeyCode.LeftArrow)
+            {
+                nextIndex = Mathf.Max(_currentSlideIndex - 1, 0);
+            }
+            else
             {
                 OnKeyEventResult?.Invoke(key, false);
                 return false;
             }
 
-            CancelActiveRequest();
-            _activeRequestCoroutine = StartCoroutine(NavigateAndLoadSlide(action, key));
+            if (nextIndex == _currentSlideIndex)
+            {
+                OnKeyEventResult?.Invoke(key, false);
+                return false;
+            }
+
+            _currentSlideIndex = nextIndex;
+            BlitCurrentSlide();
+            Debug.Log($"[SlideController] Slide {_currentSlideIndex + 1}/{_slideTextures.Count}");
+            OnKeyEventResult?.Invoke(key, true);
             return true;
         }
 
         public void Cleanup()
         {
             CancelActiveRequest();
-            _sessionId = null;
+            DestroyAllCachedTextures();
+            _slidePageIds.Clear();
+            _presentationId = null;
             _loadedPresentationUrl = null;
-            _currentImageUrl = null;
+            _currentSlideIndex = 0;
             _isLoading = false;
             _isReady = false;
         }
 
-        private IEnumerator StartSessionAndLoadFirstSlide(string normalizedUrl)
+        private IEnumerator DiscoverAndLoadAllSlides(string url)
         {
             _isLoading = true;
-            _loadedPresentationUrl = normalizedUrl;
+            _loadedPresentationUrl = url;
+            _currentSlideIndex = 0;
 
-            string endpoint = $"{TrimTrailingSlash(_backendBaseUrl)}/api/slides/sessions";
-            var requestBody = new StartSessionRequest { presentationUrl = normalizedUrl };
-            byte[] bodyBytes = Encoding.UTF8.GetBytes(JsonUtility.ToJson(requestBody));
+            DestroyAllCachedTextures();
+            _slidePageIds.Clear();
 
-            using var request = new UnityWebRequest(endpoint, UnityWebRequest.kHttpVerbPOST);
-            request.uploadHandler = new UploadHandlerRaw(bodyBytes);
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", "application/json");
+            yield return DiscoverSlidePageIds();
+
+            if (_slidePageIds.Count == 0)
+            {
+                Debug.Log("[SlideController] Embed parse found no IDs. Trying sequential probe...");
+                yield return DiscoverSlidesBySequentialProbe();
+            }
+
+            if (_slidePageIds.Count == 0)
+            {
+                _isLoading = false;
+                Debug.LogError("[SlideController] Failed to discover any slides.");
+                OnLoadError?.Invoke(WebViewError.NetworkFailure);
+                yield break;
+            }
+
+            Debug.Log($"[SlideController] Discovered {_slidePageIds.Count} slides. Downloading sequentially...");
+
+            for (int i = 0; i < _slidePageIds.Count; i++)
+            {
+                string imageUrl = BuildExportUrl(_slidePageIds[i]);
+
+                using var request = UnityWebRequestTexture.GetTexture(imageUrl);
+                request.timeout = Mathf.Max(1, _requestTimeoutSeconds);
+
+                yield return request.SendWebRequest();
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    string contentType = request.GetResponseHeader("Content-Type");
+                    if (IsHtmlResponse(contentType))
+                    {
+                        Debug.LogError($"[SlideController] HTML received instead of image for slide {i} — login wall detected.");
+                        _isLoading = false;
+                        OnLoadError?.Invoke(WebViewError.LoginWallDetected);
+                        yield break;
+                    }
+
+                    Debug.LogWarning($"[SlideController] Failed to download slide {i} ({_slidePageIds[i]}): {request.error} (HTTP {request.responseCode})");
+                    continue;
+                }
+
+                string responseContentType = request.GetResponseHeader("Content-Type");
+                if (IsHtmlResponse(responseContentType))
+                {
+                    Debug.LogError($"[SlideController] Expected image but got: {responseContentType} — login wall.");
+                    _isLoading = false;
+                    OnLoadError?.Invoke(WebViewError.LoginWallDetected);
+                    yield break;
+                }
+
+                Texture2D tex = DownloadHandlerTexture.GetContent(request);
+                if (tex != null)
+                {
+                    tex.name = $"Slide_{i}_{_slidePageIds[i]}";
+                    _slideTextures.Add(tex);
+                    Debug.Log($"[SlideController] Downloaded slide {_slideTextures.Count}/{_slidePageIds.Count} ({tex.width}x{tex.height})");
+                }
+            }
+
+            if (_slideTextures.Count == 0)
+            {
+                _isLoading = false;
+                Debug.LogError("[SlideController] No slides downloaded successfully.");
+                OnLoadError?.Invoke(WebViewError.NetworkFailure);
+                yield break;
+            }
+
+            BlitCurrentSlide();
+            _isLoading = false;
+            Debug.Log($"[SlideController] Loaded {_slideTextures.Count} slides from: {url}");
+            OnLoadSuccess?.Invoke(url);
+        }
+
+        private IEnumerator DiscoverSlidePageIds()
+        {
+            bool isPublishedId = _presentationId.StartsWith("2PACX");
+
+            string fetchUrl = isPublishedId
+                ? $"https://docs.google.com/presentation/d/e/{_presentationId}/pub"
+                : $"https://docs.google.com/presentation/d/{_presentationId}/embed?start=false&loop=false";
+
+            Debug.Log($"[SlideController] Fetching {(isPublishedId ? "published" : "embed")} page for slide discovery...");
+
+            using var request = UnityWebRequest.Get(fetchUrl);
             request.timeout = Mathf.Max(1, _requestTimeoutSeconds);
 
             yield return request.SendWebRequest();
 
-            if (!RequestSucceeded(request))
+            if (request.result != UnityWebRequest.Result.Success)
             {
-                _isLoading = false;
-                OnLoadError?.Invoke(MapToWebViewError(request));
+                Debug.LogWarning($"[SlideController] Failed to fetch page: {request.error}");
                 yield break;
             }
 
-            SlideSessionResponse response = ParseResponse(request.downloadHandler.text);
-            if (response == null || string.IsNullOrEmpty(response.sessionId) || string.IsNullOrEmpty(response.imageUrl))
+            string html = request.downloadHandler.text;
+            if (string.IsNullOrEmpty(html))
             {
-                _isLoading = false;
-                OnLoadError?.Invoke(WebViewError.Unknown);
+                Debug.LogWarning("[SlideController] Empty page response.");
                 yield break;
             }
 
-            _sessionId = response.sessionId;
-            _currentImageUrl = response.imageUrl;
-            yield return DownloadAndBlit(response.imageUrl);
-
-            if (!_isLoading)
+            // For published URLs, resolve the original presentation ID from docId
+            if (isPublishedId)
             {
-                yield break;
+                var docIdMatch = Regex.Match(html, @"docId:\s*'([a-zA-Z0-9_-]+)'");
+                if (docIdMatch.Success)
+                {
+                    string originalId = docIdMatch.Groups[1].Value;
+                    Debug.Log($"[SlideController] Resolved original presentation ID: {originalId}");
+                    _presentationId = originalId;
+                }
+                else
+                {
+                    Debug.LogWarning("[SlideController] Could not resolve original presentation ID from published page.");
+                }
             }
 
-            _isLoading = false;
-            OnLoadSuccess?.Invoke(_loadedPresentationUrl);
+            ParseSlideIdsFromHtml(html);
+            Debug.Log($"[SlideController] Page parse found {_slidePageIds.Count} slide IDs.");
         }
 
-        private IEnumerator NavigateAndLoadSlide(string action, KeyCode requestedKey)
+        private void ParseSlideIdsFromHtml(string html)
         {
-            _isLoading = true;
+            var seenIds = new HashSet<string>();
+            var slidesWithIndex = new List<(string id, int index)>();
 
-            string endpoint = $"{TrimTrailingSlash(_backendBaseUrl)}/api/slides/sessions/{UnityWebRequest.EscapeURL(_sessionId)}/{action}";
-            using var request = UnityWebRequest.Get(endpoint);
+            // Primary: parse slide entries from the docData JavaScript structure.
+            // Google embeds slide metadata as: ["pageId",slideIndex,"title",...
+            var docDataMatches = Regex.Matches(html, @"\[""(g[a-f0-9]+_\d+_\d+|p\d*)"",(\d+),""");
+            foreach (Match match in docDataMatches)
+            {
+                string pageId = match.Groups[1].Value;
+                if (int.TryParse(match.Groups[2].Value, out int slideIndex) && seenIds.Add(pageId))
+                {
+                    slidesWithIndex.Add((pageId, slideIndex));
+                }
+            }
+
+            if (slidesWithIndex.Count > 0)
+            {
+                slidesWithIndex.Sort((a, b) => a.index.CompareTo(b.index));
+                foreach (var (id, _) in slidesWithIndex)
+                {
+                    _slidePageIds.Add(id);
+                }
+                return;
+            }
+
+            // Fallback: look for slide=id.XXX patterns in URL fragments
+            var slideIdMatches = Regex.Matches(html, @"slide=id\.([a-zA-Z0-9_]+)");
+            foreach (Match match in slideIdMatches)
+            {
+                string pageId = match.Groups[1].Value;
+                if (seenIds.Add(pageId))
+                {
+                    _slidePageIds.Add(pageId);
+                }
+            }
+        }
+
+        private IEnumerator DiscoverSlidesBySequentialProbe()
+        {
+            // Sequential probe: try common page ID patterns as a last resort.
+            // Google uses "p" for the title slide and "p1","p2",... for subsequent
+            // slides in some presentations. Hash-based IDs (g...) are discovered
+            // via the docData parse above and won't appear here.
+            string[] candidates = { "p" };
+            foreach (string candidate in candidates)
+            {
+                bool exists = false;
+                yield return ProbeSlideExists(candidate, result => exists = result);
+                if (exists)
+                {
+                    _slidePageIds.Add(candidate);
+                }
+            }
+
+            int consecutiveFailures = 0;
+            for (int i = 1; i <= _maxSlides && consecutiveFailures < 3; i++)
+            {
+                string pageId = $"p{i}";
+                bool exists = false;
+                yield return ProbeSlideExists(pageId, result => exists = result);
+
+                if (exists)
+                {
+                    _slidePageIds.Add(pageId);
+                    consecutiveFailures = 0;
+                }
+                else
+                {
+                    consecutiveFailures++;
+                }
+            }
+
+            Debug.Log($"[SlideController] Sequential probe found {_slidePageIds.Count} slides.");
+        }
+
+        private IEnumerator ProbeSlideExists(string pageId, Action<bool> callback)
+        {
+            string imageUrl = BuildExportUrl(pageId);
+
+            using var request = UnityWebRequest.Head(imageUrl);
             request.timeout = Mathf.Max(1, _requestTimeoutSeconds);
 
             yield return request.SendWebRequest();
 
-            if (!RequestSucceeded(request))
+            if (request.result != UnityWebRequest.Result.Success)
             {
-                _isLoading = false;
-                OnLoadError?.Invoke(MapToWebViewError(request));
-                OnKeyEventResult?.Invoke(requestedKey, false);
+                callback(false);
                 yield break;
             }
 
-            SlideSessionResponse response = ParseResponse(request.downloadHandler.text);
-            if (response == null || string.IsNullOrEmpty(response.imageUrl))
-            {
-                _isLoading = false;
-                OnLoadError?.Invoke(WebViewError.Unknown);
-                OnKeyEventResult?.Invoke(requestedKey, false);
-                yield break;
-            }
-
-            bool changed = !string.Equals(_currentImageUrl, response.imageUrl, StringComparison.Ordinal);
-            if (changed)
-            {
-                _currentImageUrl = response.imageUrl;
-                yield return DownloadAndBlit(response.imageUrl);
-            }
-
-            if (!_isLoading)
-            {
-                OnKeyEventResult?.Invoke(requestedKey, false);
-                yield break;
-            }
-
-            _isLoading = false;
-            OnLoadSuccess?.Invoke(_loadedPresentationUrl);
-            OnKeyEventResult?.Invoke(requestedKey, changed);
+            string contentType = request.GetResponseHeader("Content-Type");
+            bool isImage = contentType != null && contentType.Contains("image/");
+            callback(isImage);
         }
 
-        private IEnumerator DownloadAndBlit(string imageUrl)
+        private void BlitCurrentSlide()
         {
-            using var imageRequest = UnityWebRequestTexture.GetTexture(imageUrl);
-            imageRequest.timeout = Mathf.Max(1, _requestTimeoutSeconds);
-
-            yield return imageRequest.SendWebRequest();
-
-            if (!RequestSucceeded(imageRequest))
+            if (_currentSlideIndex < 0 || _currentSlideIndex >= _slideTextures.Count)
             {
-                _isLoading = false;
-                OnLoadError?.Invoke(MapToWebViewError(imageRequest));
-                yield break;
+                return;
             }
 
-            Texture texture = DownloadHandlerTexture.GetContent(imageRequest);
-            if (texture == null || _targetRenderTexture == null)
+            if (_targetRenderTexture == null)
             {
-                _isLoading = false;
-                OnLoadError?.Invoke(WebViewError.Unknown);
-                yield break;
+                return;
             }
 
-            Graphics.Blit(texture, _targetRenderTexture);
+            Texture2D slide = _slideTextures[_currentSlideIndex];
+            if (slide != null)
+            {
+                Graphics.Blit(slide, _targetRenderTexture);
+            }
+        }
+
+        private string BuildExportUrl(string pageId)
+        {
+            return $"https://docs.google.com/presentation/d/{_presentationId}/export/png?id={_presentationId}&pageid={pageId}";
+        }
+
+        private static string ExtractPresentationId(string url)
+        {
+            // Published URL: /d/e/{publishedId}/pub — must check BEFORE the generic /d/ pattern
+            var pubMatch = Regex.Match(url, @"/presentation/d/e/([a-zA-Z0-9_-]+)");
+            if (pubMatch.Success)
+            {
+                return pubMatch.Groups[1].Value;
+            }
+
+            // Regular edit/view URL: /d/{presentationId}/
+            var match = Regex.Match(url, @"/presentation/d/([a-zA-Z0-9_-]+)");
+            if (match.Success)
+            {
+                return match.Groups[1].Value;
+            }
+
+            return null;
+        }
+
+        private static bool IsHtmlResponse(string contentType)
+        {
+            return contentType != null && contentType.Contains("text/html");
         }
 
         private bool EnsureReady()
@@ -219,7 +413,7 @@ namespace StageMind
                 return true;
             }
 
-            Debug.LogError("[BackendSlideWebViewController] Controller is not initialized.");
+            Debug.LogError("[SlideController] Controller is not initialized.");
             OnLoadError?.Invoke(WebViewError.Unknown);
             return false;
         }
@@ -233,65 +427,16 @@ namespace StageMind
             }
         }
 
-        private static bool RequestSucceeded(UnityWebRequest request)
+        private void DestroyAllCachedTextures()
         {
-            return request.result == UnityWebRequest.Result.Success;
-        }
-
-        private static string TrimTrailingSlash(string value)
-        {
-            return string.IsNullOrEmpty(value) ? string.Empty : value.TrimEnd('/');
-        }
-
-        private static SlideSessionResponse ParseResponse(string json)
-        {
-            if (string.IsNullOrWhiteSpace(json))
+            foreach (var tex in _slideTextures)
             {
-                return null;
+                if (tex != null)
+                {
+                    Destroy(tex);
+                }
             }
-
-            try
-            {
-                return JsonUtility.FromJson<SlideSessionResponse>(json);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private static WebViewError MapToWebViewError(UnityWebRequest request)
-        {
-            if (request.responseCode is 403 or 422)
-            {
-                return WebViewError.LoginWallDetected;
-            }
-
-            if (request.responseCode is 408 or 504)
-            {
-                return WebViewError.PageLoadTimeout;
-            }
-
-            if (!string.IsNullOrEmpty(request.error) &&
-                request.error.IndexOf("timed out", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return WebViewError.PageLoadTimeout;
-            }
-
-            return WebViewError.NetworkFailure;
-        }
-
-        [Serializable]
-        private class StartSessionRequest
-        {
-            public string presentationUrl;
-        }
-
-        [Serializable]
-        private class SlideSessionResponse
-        {
-            public string sessionId;
-            public string imageUrl;
+            _slideTextures.Clear();
         }
     }
 }

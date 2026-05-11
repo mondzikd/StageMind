@@ -77,3 +77,6 @@ Thumbs.db
 
 # Mono crash reports
 mono_crash.*.json
+
+# Unity MCP Gateway
+/gateway/node_modules/

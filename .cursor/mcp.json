@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "unity": {
+      "command": "node",
+      "args": ["StageMind/gateway/index.js"],
+      "env": {}
+    }
+  }
+}
